@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Studio Prins — Dashboard
 
-## Getting Started
+Intern dashboard van Studio Prins: klanten met website-screenshots en onboarding-checklists, facturen & offertes met PDF, en een handmatige leadslijst met demo-URL's. Eén gebruiker, beveiligd met wachtwoord.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js 16** (App Router) + React 19 + TypeScript
+- **Tailwind CSS v4** — eigen design-systeem in `app/globals.css`
+- **Neon Postgres** + **Drizzle ORM** (`lib/db/`)
+- **Auth**: één gebruiker via env-vars, `jose`-sessiecookie, bescherming in `proxy.ts`
+- **PDF**: `@react-pdf/renderer` (`lib/pdf/`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Lokaal draaien
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. `npm install`
+2. Maak een gratis **Neon**-database aan en kopieer de connectie-string.
+3. Kopieer `.env.example` → `.env.local` en vul in (zie de opmerking over de `$`-escaping van de wachtwoord-hash).
+4. `npm run db:push` — zet de tabellen klaar in de database.
+5. (optioneel) `npm run db:seed` — voorbeelddata.
+6. `npm run dev` — open http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Belangrijk om in te vullen
 
-## Learn More
+- `lib/bedrijf.ts` — KVK, btw-nummer, IBAN en adres (wettelijk verplicht op facturen).
+- `lib/checklist-template.ts` — de standaard onboarding-stappen.
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy (GitHub → Vercel)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Push naar GitHub (al gekoppeld).
+2. Importeer de repo in Vercel.
+3. Voeg via **Vercel Marketplace → Neon** een database toe (zet automatisch `DATABASE_URL`).
+4. Zet de env-vars `AUTH_EMAIL`, `AUTH_PASSWORD_HASH` (rauwe hash), `SESSION_SECRET`.
+5. Na de eerste deploy: `npm run db:push` tegen de productie-`DATABASE_URL`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | Doel |
+| --- | --- |
+| `npm run dev` | Ontwikkelserver |
+| `npm run build` | Productiebuild |
+| `npm run db:push` | Schema naar de database sturen |
+| `npm run db:generate` | Migratiebestand genereren |
+| `npm run db:seed` | Voorbeelddata |
+| `npm run db:studio` | Drizzle Studio (database bekijken) |
