@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: [".env.local", ".env"] });
 import { db } from "../lib/db";
 import { clients, tasks, leads, invoices, invoiceLines } from "../lib/db/schema";
 import { CHECKLIST_TEMPLATE } from "../lib/checklist-template";
