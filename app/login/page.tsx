@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { LogoMark } from "@/components/Logo";
 import { LoginForm } from "./LoginForm";
 
@@ -9,30 +10,43 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <main className="min-h-screen grid lg:grid-cols-2">
-      {/* Merkzijde */}
-      <div
-        className="hidden lg:flex flex-col justify-between p-12 text-white"
-        style={{
-          background:
-            "radial-gradient(120% 120% at 0% 0%, #2a28b0 0%, var(--ink) 60%)",
-        }}
-      >
-        <LogoMark size={44} />
-        <div>
-          <h1
-            className="text-4xl font-semibold leading-tight tracking-tight"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Alles op één plek.
-          </h1>
-          <p className="mt-4 max-w-sm text-white/70 leading-relaxed">
-            Klanten, projecten, facturen en leads — het interne dashboard van
-            Studio Prins.
+      {/* Merkzijde met teamfoto */}
+      <div className="hidden lg:block relative overflow-hidden text-white">
+        <Image
+          src="/deboys-studioprins.jpeg"
+          alt="Het team van Studio Prins"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover"
+        />
+        {/* Donkere overlay voor leesbaarheid van de tekst */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(23,22,27,0.35) 0%, rgba(23,22,27,0.55) 45%, rgba(23,22,27,0.88) 100%)",
+          }}
+        />
+        <div className="relative z-10 flex h-full flex-col justify-between p-12">
+          <LogoMark size={44} />
+          <div>
+            <h1
+              className="text-4xl font-semibold leading-tight tracking-tight"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Ewa, eigenaar van het fantastische bedrijf Studioprins
+            </h1>
+            <p className="mt-4 max-w-md text-white/80 leading-relaxed">
+              Binnen dit dashboard beheren we onze leads en klanten. We houden
+              per klant een checklist bij en kunnen eenvoudig facturen opmaken.
+              We gaan veeeeel pap maken.
+            </p>
+          </div>
+          <p className="text-sm text-white/60">
+            © {new Date().getFullYear()} Studio Prins
           </p>
         </div>
-        <p className="text-sm text-white/50">
-          © {new Date().getFullYear()} Studio Prins
-        </p>
       </div>
 
       {/* Formulierzijde */}
