@@ -2,8 +2,9 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createInvoice, type FormState } from "@/lib/actions/invoices";
-import { euroToCents, formatCents, toISODate, addDays } from "@/lib/format";
+import { euroToCents, formatCents, toISODate, addMonths } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
+import { BEDRIJF } from "@/lib/bedrijf";
 import type { Client } from "@/lib/db/schema";
 
 type Line = { key: number; omschrijving: string; aantal: string; prijs: string };
@@ -34,7 +35,7 @@ export function InvoiceBuilder({
     email: initialClient?.email ?? "",
     adres: initialClient?.adres ?? "",
   });
-  const [btw, setBtw] = useState("21");
+  const [btw, setBtw] = useState(String(BEDRIJF.standaardBtw));
   const [datum, setDatum] = useState(toISODate());
   const [lines, setLines] = useState<Line[]>([newLine()]);
 
@@ -60,7 +61,8 @@ export function InvoiceBuilder({
     return { sub, btw: b, total: sub + b };
   }, [lines, btw]);
 
-  const vervaldatum = type === "factuur" ? addDays(14, new Date(datum)) : "";
+  const vervaldatum =
+    type === "factuur" ? addMonths(BEDRIJF.betaaltermijnMaanden, new Date(datum)) : "";
 
   return (
     <form action={formAction} className="grid gap-6 lg:grid-cols-[1.4fr_1fr] items-start">

@@ -21,6 +21,13 @@ export const BEDRIJF = {
   iban: "", // IBAN voor betalingen
   tenaamstelling: "", // naam op de bankrekening, indien afwijkend
 
-  // Standaard betaaltermijn in dagen (voor de vervaldatum van facturen)
-  betaaltermijnDagen: 14,
+  // KOR: Studio Prins valt onder de kleineondernemersregeling → geen btw.
+  kor: true,
+  korVermelding:
+    "Studioprins valt onder de KOR, dit houdt in dat wij geen BTW rekenen op onze facturen.",
+  // Standaard btw-percentage op nieuwe facturen (0 vanwege de KOR).
+  standaardBtw: 0,
+
+  // Standaard betaaltermijn: exact één maand na de factuurdatum.
+  betaaltermijnMaanden: 1,
 } as const;

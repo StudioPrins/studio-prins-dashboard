@@ -3,9 +3,11 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from "@react-pdf/renderer";
 import { BEDRIJF } from "@/lib/bedrijf";
+import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 import { formatCents, formatDate } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
 import type { InvoiceWithTotals } from "@/lib/queries";
@@ -30,8 +32,9 @@ const s = StyleSheet.create({
   },
   brand: { fontSize: 15, fontFamily: "Helvetica-Bold" },
   tagline: { color: MUTED, fontSize: 9 },
-  docTitle: { fontSize: 18, fontFamily: "Helvetica-Bold", textAlign: "right" },
-  docNr: { color: MUTED, textAlign: "right" },
+  docTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  docNr: { color: MUTED, fontSize: 10 },
+  logo: { width: 120, objectFit: "contain" },
   cols: { flexDirection: "row", justifyContent: "space-between", marginBottom: 28 },
   col: { width: "48%" },
   labelSmall: {
@@ -74,6 +77,12 @@ const s = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
   notitie: { marginTop: 22, color: "#45434d" },
+  kor: {
+    marginTop: 16,
+    fontSize: 9,
+    color: MUTED,
+    fontFamily: "Helvetica-Oblique",
+  },
   footer: {
     position: "absolute",
     bottom: 40,
@@ -98,13 +107,11 @@ export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>{BEDRIJF.naam}</Text>
-            <Text style={s.tagline}>{BEDRIJF.tagline}</Text>
-          </View>
-          <View>
             <Text style={s.docTitle}>{titel}</Text>
             <Text style={s.docNr}>{invoice.nummer}</Text>
           </View>
+          {/* Logo rechtsboven */}
+          <Image src={LOGO_DATA_URI} style={s.logo} />
         </View>
 
         <View style={s.cols}>
@@ -159,10 +166,12 @@ export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
               <Text style={{ color: MUTED }}>Subtotaal</Text>
               <Text>{formatCents(invoice.totals.subtotaalCents)}</Text>
             </View>
-            <View style={s.totalsRow}>
-              <Text style={{ color: MUTED }}>Btw ({invoice.btwPercentage}%)</Text>
-              <Text>{formatCents(invoice.totals.btwCents)}</Text>
-            </View>
+            {invoice.btwPercentage > 0 && (
+              <View style={s.totalsRow}>
+                <Text style={{ color: MUTED }}>Btw ({invoice.btwPercentage}%)</Text>
+                <Text>{formatCents(invoice.totals.btwCents)}</Text>
+              </View>
+            )}
             <View style={s.totalsGrand}>
               <Text>Totaal</Text>
               <Text>{formatCents(invoice.totals.totaalCents)}</Text>
@@ -171,6 +180,10 @@ export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
         </View>
 
         {!!invoice.notitie && <Text style={s.notitie}>{invoice.notitie}</Text>}
+
+        {invoice.btwPercentage === 0 && BEDRIJF.kor && (
+          <Text style={s.kor}>{BEDRIJF.korVermelding}</Text>
+        )}
 
         <View style={s.footer} fixed>
           {!!BEDRIJF.iban && <Text>IBAN: {BEDRIJF.iban}</Text>}

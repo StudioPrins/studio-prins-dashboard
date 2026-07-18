@@ -7,6 +7,7 @@ import { INVOICE_STATUSES } from "@/lib/status";
 import { formatCents, formatDate } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
 import { BEDRIJF } from "@/lib/bedrijf";
+import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 
 export default async function FactuurDetailPage({
   params,
@@ -38,17 +39,13 @@ export default async function FactuurDetailPage({
       <div className="card p-8 sm:p-10">
         <div className="flex justify-between items-start gap-6 mb-10">
           <div>
-            <p className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-              {BEDRIJF.naam}
-            </p>
-            <p className="text-sm text-muted">{BEDRIJF.tagline}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+            <p className="text-2xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               {titel}
             </p>
             <p className="text-sm font-mono text-ink-soft">{inv.nummer}</p>
           </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO_DATA_URI} alt="Studio Prins" className="h-16 w-auto object-contain" />
         </div>
 
         <div className="grid grid-cols-2 gap-6 mb-10 text-sm">
@@ -113,10 +110,12 @@ export default async function FactuurDetailPage({
               <dt className="text-muted">Subtotaal</dt>
               <dd className="tabular-nums">{formatCents(inv.totals.subtotaalCents)}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted">Btw ({inv.btwPercentage}%)</dt>
-              <dd className="tabular-nums">{formatCents(inv.totals.btwCents)}</dd>
-            </div>
+            {inv.btwPercentage > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted">Btw ({inv.btwPercentage}%)</dt>
+                <dd className="tabular-nums">{formatCents(inv.totals.btwCents)}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-line-strong pt-2 mt-1 font-semibold text-base">
               <dt>Totaal</dt>
               <dd className="tabular-nums">{formatCents(inv.totals.totaalCents)}</dd>
@@ -125,6 +124,10 @@ export default async function FactuurDetailPage({
         </div>
 
         {inv.notitie && <p className="text-sm text-ink-soft mb-6">{inv.notitie}</p>}
+
+        {inv.btwPercentage === 0 && BEDRIJF.kor && (
+          <p className="text-sm italic text-muted mb-6">{BEDRIJF.korVermelding}</p>
+        )}
 
         <div className="border-t border-line pt-5 text-xs text-muted flex flex-wrap gap-x-6 gap-y-1">
           {BEDRIJF.iban && <span>IBAN: {BEDRIJF.iban}</span>}

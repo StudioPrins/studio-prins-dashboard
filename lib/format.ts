@@ -41,3 +41,17 @@ export function addDays(days: number, from: Date = new Date()): string {
   d.setDate(d.getDate() + days);
   return toISODate(d);
 }
+
+/**
+ * Voegt maanden toe en houdt dezelfde dag van de maand aan.
+ * Valt de doeldag buiten de maand (bv. 31 → februari), dan de laatste dag.
+ */
+export function addMonths(months: number, from: Date = new Date()): string {
+  const d = new Date(from);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return toISODate(d);
+}

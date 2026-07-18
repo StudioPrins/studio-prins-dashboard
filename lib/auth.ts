@@ -9,17 +9,26 @@ import {
   type SessionPayload,
 } from "./session";
 
+/** Toegestane e-mailadressen (komma-gescheiden in AUTH_EMAILS, fallback AUTH_EMAIL). */
+function allowedEmails(): string[] {
+  const raw = process.env.AUTH_EMAILS || process.env.AUTH_EMAIL || "";
+  return raw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 /** Controleert inloggegevens tegen de env-vars en zet bij succes de sessiecookie. */
 export async function login(email: string, password: string): Promise<boolean> {
-  const expectedEmail = (process.env.AUTH_EMAIL || "").trim().toLowerCase();
+  const normalized = email.trim().toLowerCase();
   const hash = process.env.AUTH_PASSWORD_HASH || "";
 
-  const emailOk = email.trim().toLowerCase() === expectedEmail && expectedEmail !== "";
+  const emailOk = allowedEmails().includes(normalized);
   const passwordOk = hash ? await bcrypt.compare(password, hash) : false;
 
   if (!emailOk || !passwordOk) return false;
 
-  const token = await signSession(expectedEmail);
+  const token = await signSession(normalized);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,

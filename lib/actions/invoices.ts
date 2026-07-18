@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { invoices, invoiceLines, clients } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
-import { euroToCents, addDays, toISODate } from "@/lib/format";
+import { euroToCents, addMonths, toISODate } from "@/lib/format";
 import { nextInvoiceNumber } from "@/lib/invoice-number";
 import { BEDRIJF } from "@/lib/bedrijf";
 
@@ -56,8 +56,9 @@ export async function createInvoice(
   const datum = str(formData.get("datum")) || toISODate();
   const vervaldatum =
     str(formData.get("vervaldatum")) ||
-    (type === "factuur" ? addDays(BEDRIJF.betaaltermijnDagen, new Date(datum)) : "");
-  const btwPercentage = Number(str(formData.get("btwPercentage")) || "21");
+    (type === "factuur" ? addMonths(BEDRIJF.betaaltermijnMaanden, new Date(datum)) : "");
+  const btwRaw = str(formData.get("btwPercentage"));
+  const btwPercentage = btwRaw === "" ? BEDRIJF.standaardBtw : Number(btwRaw);
 
   const nummer = await nextInvoiceNumber(type);
 
@@ -128,7 +129,7 @@ export async function convertOfferteToFactuur(id: number) {
       ontvangerEmail: offerte.ontvangerEmail,
       ontvangerAdres: offerte.ontvangerAdres,
       datum,
-      vervaldatum: addDays(BEDRIJF.betaaltermijnDagen, new Date(datum)),
+      vervaldatum: addMonths(BEDRIJF.betaaltermijnMaanden, new Date(datum)),
       status: "concept",
       btwPercentage: offerte.btwPercentage,
       notitie: offerte.notitie,

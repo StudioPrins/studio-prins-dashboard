@@ -20,7 +20,6 @@ export function LoginForm() {
           type="email"
           autoComplete="username"
           required
-          defaultValue="info@studioprins.nl"
           className="input"
           placeholder="jij@studioprins.nl"
         />

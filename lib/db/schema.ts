@@ -53,7 +53,7 @@ export const invoices = pgTable("invoices", {
   datum: date("datum").notNull(),
   vervaldatum: date("vervaldatum"),
   status: text("status").notNull().default("concept"), // concept | verzonden | betaald | verlopen
-  btwPercentage: integer("btw_percentage").notNull().default(21),
+  btwPercentage: integer("btw_percentage").notNull().default(0),
   notitie: text("notitie"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
