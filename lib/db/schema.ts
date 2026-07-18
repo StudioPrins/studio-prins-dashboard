@@ -83,6 +83,25 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Eigen bedrijfsgegevens van Studio Prins (één rij, id=1). Voor op de facturen. */
+export const companySettings = pgTable("company_settings", {
+  id: integer("id").primaryKey().default(1),
+  naam: text("naam"),
+  tagline: text("tagline"),
+  email: text("email"),
+  telefoon: text("telefoon"),
+  website: text("website"),
+  adres: text("adres"),
+  postcode: text("postcode"),
+  plaats: text("plaats"),
+  kvk: text("kvk"),
+  btw: text("btw"),
+  iban: text("iban"),
+  tenaamstelling: text("tenaamstelling"),
+});
+
+export type CompanySettings = typeof companySettings.$inferSelect;
+
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Task = typeof tasks.$inferSelect;

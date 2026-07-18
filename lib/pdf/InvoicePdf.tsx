@@ -6,11 +6,10 @@ import {
   Image,
   StyleSheet,
 } from "@react-pdf/renderer";
-import { BEDRIJF } from "@/lib/bedrijf";
 import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 import { formatCents, formatDate } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
-import type { InvoiceWithTotals } from "@/lib/queries";
+import type { InvoiceWithTotals, Bedrijf } from "@/lib/queries";
 
 const INK = "#17161b";
 const MUTED = "#78767f";
@@ -98,9 +97,15 @@ const s = StyleSheet.create({
   },
 });
 
-export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
+export function InvoicePdf({
+  invoice,
+  bedrijf,
+}: {
+  invoice: InvoiceWithTotals;
+  bedrijf: Bedrijf;
+}) {
   const titel = invoice.type === "offerte" ? "Offerte" : "Factuur";
-  const address = [BEDRIJF.postcode, BEDRIJF.plaats].filter(Boolean).join(" ");
+  const address = [bedrijf.postcode, bedrijf.plaats].filter(Boolean).join(" ");
 
   return (
     <Document title={`${titel} ${invoice.nummer}`}>
@@ -117,11 +122,11 @@ export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
         <View style={s.cols}>
           <View style={s.col}>
             <Text style={s.labelSmall}>Van</Text>
-            <Text style={s.bold}>{BEDRIJF.naam}</Text>
-            {!!BEDRIJF.adres && <Text>{BEDRIJF.adres}</Text>}
+            <Text style={s.bold}>{bedrijf.naam}</Text>
+            {!!bedrijf.adres && <Text>{bedrijf.adres}</Text>}
             {!!address && <Text>{address}</Text>}
-            <Text>{BEDRIJF.email}</Text>
-            {!!BEDRIJF.telefoon && <Text>{BEDRIJF.telefoon}</Text>}
+            <Text>{bedrijf.email}</Text>
+            {!!bedrijf.telefoon && <Text>{bedrijf.telefoon}</Text>}
           </View>
           <View style={s.col}>
             <Text style={s.labelSmall}>Aan</Text>
@@ -181,14 +186,14 @@ export function InvoicePdf({ invoice }: { invoice: InvoiceWithTotals }) {
 
         {!!invoice.notitie && <Text style={s.notitie}>{invoice.notitie}</Text>}
 
-        {invoice.btwPercentage === 0 && BEDRIJF.kor && (
-          <Text style={s.kor}>{BEDRIJF.korVermelding}</Text>
+        {invoice.btwPercentage === 0 && bedrijf.kor && (
+          <Text style={s.kor}>{bedrijf.korVermelding}</Text>
         )}
 
         <View style={s.footer} fixed>
-          {!!BEDRIJF.iban && <Text>IBAN: {BEDRIJF.iban}</Text>}
-          {!!BEDRIJF.kvk && <Text>KVK: {BEDRIJF.kvk}</Text>}
-          {!!BEDRIJF.btw && <Text>Btw: {BEDRIJF.btw}</Text>}
+          {!!bedrijf.iban && <Text>IBAN: {bedrijf.iban}</Text>}
+          {!!bedrijf.kvk && <Text>KVK: {bedrijf.kvk}</Text>}
+          {!!bedrijf.btw && <Text>Btw: {bedrijf.btw}</Text>}
         </View>
       </Page>
     </Document>

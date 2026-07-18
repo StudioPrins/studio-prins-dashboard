@@ -1,6 +1,6 @@
 import { createElement, type ReactElement } from "react";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
-import { getInvoice } from "@/lib/queries";
+import { getInvoice, getCompanySettings } from "@/lib/queries";
 import { InvoicePdf } from "@/lib/pdf/InvoicePdf";
 
 export const runtime = "nodejs";
@@ -13,8 +13,9 @@ export async function GET(
   const { id } = await params;
   const invoice = await getInvoice(Number(id)); // bevat de sessie-check
   if (!invoice) return new Response("Niet gevonden", { status: 404 });
+  const bedrijf = await getCompanySettings();
 
-  const element = createElement(InvoicePdf, { invoice }) as ReactElement<DocumentProps>;
+  const element = createElement(InvoicePdf, { invoice, bedrijf }) as ReactElement<DocumentProps>;
   const buffer = await renderToBuffer(element);
   const naam = `${invoice.type === "offerte" ? "offerte" : "factuur"}-${invoice.nummer}.pdf`;
 

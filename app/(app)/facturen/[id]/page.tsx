@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getInvoice } from "@/lib/queries";
+import { getInvoice, getCompanySettings } from "@/lib/queries";
 import { InvoiceActions } from "@/components/invoices/InvoiceActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { INVOICE_STATUSES } from "@/lib/status";
 import { formatCents, formatDate } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
-import { BEDRIJF } from "@/lib/bedrijf";
 import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 
 export default async function FactuurDetailPage({
@@ -17,6 +16,7 @@ export default async function FactuurDetailPage({
   const { id } = await params;
   const inv = await getInvoice(Number(id));
   if (!inv) notFound();
+  const bedrijf = await getCompanySettings();
 
   const titel = inv.type === "offerte" ? "Offerte" : "Factuur";
 
@@ -51,12 +51,12 @@ export default async function FactuurDetailPage({
         <div className="grid grid-cols-2 gap-6 mb-10 text-sm">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted mb-1">Van</p>
-            <p className="font-medium">{BEDRIJF.naam}</p>
-            {BEDRIJF.adres && <p className="text-ink-soft">{BEDRIJF.adres}</p>}
-            {(BEDRIJF.postcode || BEDRIJF.plaats) && (
-              <p className="text-ink-soft">{[BEDRIJF.postcode, BEDRIJF.plaats].filter(Boolean).join(" ")}</p>
+            <p className="font-medium">{bedrijf.naam}</p>
+            {bedrijf.adres && <p className="text-ink-soft">{bedrijf.adres}</p>}
+            {(bedrijf.postcode || bedrijf.plaats) && (
+              <p className="text-ink-soft">{[bedrijf.postcode, bedrijf.plaats].filter(Boolean).join(" ")}</p>
             )}
-            <p className="text-ink-soft">{BEDRIJF.email}</p>
+            <p className="text-ink-soft">{bedrijf.email}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted mb-1">Aan</p>
@@ -125,18 +125,22 @@ export default async function FactuurDetailPage({
 
         {inv.notitie && <p className="text-sm text-ink-soft mb-6">{inv.notitie}</p>}
 
-        {inv.btwPercentage === 0 && BEDRIJF.kor && (
-          <p className="text-sm italic text-muted mb-6">{BEDRIJF.korVermelding}</p>
+        {inv.btwPercentage === 0 && bedrijf.kor && (
+          <p className="text-sm italic text-muted mb-6">{bedrijf.korVermelding}</p>
         )}
 
         <div className="border-t border-line pt-5 text-xs text-muted flex flex-wrap gap-x-6 gap-y-1">
-          {BEDRIJF.iban && <span>IBAN: {BEDRIJF.iban}</span>}
-          {BEDRIJF.kvk && <span>KVK: {BEDRIJF.kvk}</span>}
-          {BEDRIJF.btw && <span>Btw: {BEDRIJF.btw}</span>}
+          {bedrijf.iban && <span>IBAN: {bedrijf.iban}</span>}
+          {bedrijf.kvk && <span>KVK: {bedrijf.kvk}</span>}
+          {bedrijf.btw && <span>Btw: {bedrijf.btw}</span>}
         </div>
-        {(!BEDRIJF.iban || !BEDRIJF.kvk || !BEDRIJF.btw) && (
+        {(!bedrijf.iban || !bedrijf.kvk || !bedrijf.btw) && (
           <p className="mt-4 text-xs rounded-[10px] px-3 py-2" style={{ background: "var(--amber-soft)", color: "var(--amber)" }}>
-            Tip: vul KVK, btw-nummer en IBAN in <code>lib/bedrijf.ts</code> in — deze zijn wettelijk verplicht op een factuur.
+            Tip: vul KVK, btw-nummer en IBAN in bij{" "}
+            <Link href="/instellingen" className="underline font-medium">
+              Bedrijfsgegevens
+            </Link>{" "}
+            — deze zijn wettelijk verplicht op een factuur.
           </p>
         )}
       </div>

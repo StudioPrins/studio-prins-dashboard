@@ -1,10 +1,56 @@
 import "server-only";
 import { and, desc, eq, inArray, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { clients, tasks, invoices, invoiceLines, leads } from "@/lib/db/schema";
+import { clients, tasks, invoices, invoiceLines, leads, companySettings } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
+import { BEDRIJF } from "@/lib/bedrijf";
 import type { Client, Task, Invoice, InvoiceLine, Lead } from "@/lib/db/schema";
+
+/** Effectieve bedrijfsgegevens: DB-instellingen over de code-defaults heen. */
+export type Bedrijf = {
+  naam: string;
+  tagline: string;
+  email: string;
+  telefoon: string;
+  website: string;
+  adres: string;
+  postcode: string;
+  plaats: string;
+  kvk: string;
+  btw: string;
+  iban: string;
+  tenaamstelling: string;
+  kor: boolean;
+  korVermelding: string;
+  standaardBtw: number;
+  betaaltermijnMaanden: number;
+};
+
+const pick = (v: string | null | undefined, d: string) => (v && v.trim() ? v : d);
+
+export async function getCompanySettings(): Promise<Bedrijf> {
+  await requireSession();
+  const [row] = await db.select().from(companySettings).where(eq(companySettings.id, 1));
+  return {
+    naam: pick(row?.naam, BEDRIJF.naam),
+    tagline: pick(row?.tagline, BEDRIJF.tagline),
+    email: pick(row?.email, BEDRIJF.email),
+    telefoon: pick(row?.telefoon, BEDRIJF.telefoon),
+    website: pick(row?.website, BEDRIJF.website),
+    adres: pick(row?.adres, BEDRIJF.adres),
+    postcode: pick(row?.postcode, BEDRIJF.postcode),
+    plaats: pick(row?.plaats, BEDRIJF.plaats),
+    kvk: pick(row?.kvk, BEDRIJF.kvk),
+    btw: pick(row?.btw, BEDRIJF.btw),
+    iban: pick(row?.iban, BEDRIJF.iban),
+    tenaamstelling: pick(row?.tenaamstelling, BEDRIJF.tenaamstelling),
+    kor: BEDRIJF.kor,
+    korVermelding: BEDRIJF.korVermelding,
+    standaardBtw: BEDRIJF.standaardBtw,
+    betaaltermijnMaanden: BEDRIJF.betaaltermijnMaanden,
+  };
+}
 
 export type InvoiceWithTotals = Invoice & {
   lines: InvoiceLine[];
