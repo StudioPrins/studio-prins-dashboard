@@ -1,10 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { clients, tasks } from "@/lib/db/schema";
+import { clients, tasks, checklistTemplate } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { euroToCents } from "@/lib/format";
 import { CHECKLIST_TEMPLATE } from "@/lib/checklist-template";
@@ -47,10 +47,21 @@ export async function createClient(
   redirect(`/klanten/${created.id}`);
 }
 
-/** Maakt de standaard checklist-taken aan voor een klant. */
+/**
+ * Maakt de onboarding-taken aan voor een klant vanuit het beheerbare
+ * hoofdsjabloon (checklist_template). Valt terug op de code-constante als het
+ * sjabloon (nog) leeg is.
+ */
 export async function seedChecklist(clientId: number): Promise<void> {
+  const template = await db
+    .select({ titel: checklistTemplate.titel })
+    .from(checklistTemplate)
+    .orderBy(asc(checklistTemplate.volgorde), asc(checklistTemplate.id));
+
+  const titels = template.length > 0 ? template.map((t) => t.titel) : CHECKLIST_TEMPLATE;
+
   await db.insert(tasks).values(
-    CHECKLIST_TEMPLATE.map((titel, i) => ({
+    titels.map((titel, i) => ({
       clientId,
       titel,
       volgorde: i,
@@ -144,5 +155,40 @@ export async function addTask(clientId: number, titel: string) {
 export async function deleteTask(taskId: number, clientId: number) {
   await requireSession();
   await db.delete(tasks).where(eq(tasks.id, taskId));
+  revalidatePath(`/klanten/${clientId}`);
+}
+
+export async function renameTask(taskId: number, clientId: number, titel: string) {
+  await requireSession();
+  const clean = titel.trim();
+  if (!clean) return;
+  await db.update(tasks).set({ titel: clean }).where(eq(tasks.id, taskId));
+  revalidatePath(`/klanten/${clientId}`);
+}
+
+/** Verschuift een taak omhoog/omlaag door de volgorde met de buur te wisselen. */
+export async function moveTask(
+  taskId: number,
+  clientId: number,
+  richting: "up" | "down"
+) {
+  await requireSession();
+  const rows = await db
+    .select({ id: tasks.id, volgorde: tasks.volgorde })
+    .from(tasks)
+    .where(eq(tasks.clientId, clientId))
+    .orderBy(asc(tasks.volgorde), asc(tasks.id));
+
+  const idx = rows.findIndex((r) => r.id === taskId);
+  if (idx === -1) return;
+  const swapIdx = richting === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= rows.length) return;
+
+  const a = rows[idx];
+  const b = rows[swapIdx];
+  // Volgorde-waarden omwisselen (met tijdelijke waarde tegen de unique-loze botsing).
+  await db.update(tasks).set({ volgorde: b.volgorde }).where(eq(tasks.id, a.id));
+  await db.update(tasks).set({ volgorde: a.volgorde }).where(eq(tasks.id, b.id));
+
   revalidatePath(`/klanten/${clientId}`);
 }

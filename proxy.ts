@@ -30,6 +30,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Alles behalve Next-interne assets, de auth-API en statische bestanden.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Alles behalve Next-interne assets, de auth-API, de cron-route (eigen
+  // CRON_SECRET-beveiliging), het publieke intakeformulier (/onboarding/...) en
+  // statische bestanden.
+  matcher: ["/((?!api/auth|api/cron|onboarding|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

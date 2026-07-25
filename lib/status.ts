@@ -32,6 +32,15 @@ export const LEAD_STATUSES: Record<string, StatusStyle> = {
 
 export const LEAD_STATUS_KEYS = Object.keys(LEAD_STATUSES);
 
+/** Mailcategorieën (AI-gestuurd). */
+export const MAIL_CATEGORY_STYLES: Record<string, StatusStyle> = {
+  belangrijk: { label: "Belangrijk", bg: "var(--danger-soft)", fg: "var(--danger)" },
+  beantwoorden: { label: "Beantwoorden", bg: "var(--accent-soft)", fg: "var(--accent-ink)" },
+  nieuwsbrief: { label: "Nieuwsbrief", bg: "var(--info-soft)", fg: "var(--info)" },
+  notificatie: { label: "Notificatie", bg: "var(--amber-soft)", fg: "var(--amber)" },
+  onbelangrijk: { label: "Onbelangrijk", bg: "var(--surface-2)", fg: "var(--muted)" },
+};
+
 export function statusStyle(
   map: Record<string, StatusStyle>,
   key: string

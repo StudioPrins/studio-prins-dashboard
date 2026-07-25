@@ -5,10 +5,11 @@ import { Checklist } from "@/components/clients/Checklist";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
 import { ClientStatusSelect } from "@/components/clients/ClientStatusSelect";
 import { DeleteClientButton } from "@/components/clients/DeleteClientButton";
-import { WelcomeMail } from "@/components/clients/WelcomeMail";
+import { OnboardingPanel } from "@/components/clients/OnboardingPanel";
+import { IntakeSummary } from "@/components/clients/IntakeSummary";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
-import { generateWelcomeMail } from "@/lib/welcome-mail";
 import { screenshotUrl, toHref } from "@/lib/screenshot";
+import { publicBaseUrl } from "@/lib/site";
 import { formatCents } from "@/lib/format";
 
 export default async function KlantDetailPage({
@@ -23,7 +24,9 @@ export default async function KlantDetailPage({
   const { client, tasks, invoices } = detail;
   const shot = screenshotUrl(client.websiteUrl, client.screenshotOverride);
   const websiteHref = toHref(client.websiteUrl);
-  const mail = generateWelcomeMail(client);
+  const formUrl = client.onboardingToken
+    ? `${publicBaseUrl()}/onboarding/${client.onboardingToken}`
+    : null;
 
   return (
     <div className="p-5 sm:p-8 max-w-[1400px] mx-auto">
@@ -45,7 +48,6 @@ export default async function KlantDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ClientStatusSelect clientId={client.id} status={client.status} />
-          <WelcomeMail subject={mail.subject} body={mail.body} />
           <ClientFormModal
             mode="edit"
             client={client}
@@ -53,6 +55,18 @@ export default async function KlantDetailPage({
             triggerClass="btn btn-secondary"
           />
         </div>
+      </div>
+
+      <div className="mb-6">
+        <OnboardingPanel
+          clientId={client.id}
+          hasEmail={Boolean(client.email)}
+          email={client.email}
+          sentAt={client.onboardingSentAt ? client.onboardingSentAt.toISOString() : null}
+          submittedAt={client.intakeSubmittedAt ? client.intakeSubmittedAt.toISOString() : null}
+          formUrl={formUrl}
+          driveUrl={client.driveFolderUrl}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
@@ -113,6 +127,13 @@ export default async function KlantDetailPage({
           <Checklist clientId={client.id} tasks={tasks} />
         </div>
       </div>
+
+      {/* Intake-gegevens (zichtbaar zodra ingevuld) */}
+      {client.intakeSubmittedAt && (
+        <div className="mt-6">
+          <IntakeSummary client={client} />
+        </div>
+      )}
 
       {/* Facturen */}
       <div className="card p-5 mt-6">

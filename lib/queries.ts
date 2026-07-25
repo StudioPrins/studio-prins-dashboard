@@ -1,11 +1,12 @@
 import "server-only";
-import { and, desc, eq, inArray, asc } from "drizzle-orm";
+import { and, desc, eq, inArray, asc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { clients, tasks, invoices, invoiceLines, leads, companySettings } from "@/lib/db/schema";
+import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, mailAccounts, mailMessages } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
+import { sanitizeEmailHtml } from "@/lib/mail/sanitize";
 import { BEDRIJF } from "@/lib/bedrijf";
-import type { Client, Task, Invoice, InvoiceLine, Lead } from "@/lib/db/schema";
+import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, MailAccount, MailAccountView } from "@/lib/db/schema";
 
 /** Effectieve bedrijfsgegevens: DB-instellingen over de code-defaults heen. */
 export type Bedrijf = {
@@ -193,4 +194,152 @@ export async function getClientsForSelect(): Promise<Client[]> {
 export async function getLeads(): Promise<Lead[]> {
   await requireSession();
   return db.select().from(leads).orderBy(desc(leads.createdAt));
+}
+
+/**
+ * Eén klant op basis van het onboarding-token. GEEN sessie vereist: dit voedt
+ * de publieke intakeformulier-pagina. Null als het token niet klopt.
+ */
+export async function getClientByToken(token: string): Promise<Client | null> {
+  const clean = token.trim();
+  if (!clean) return null;
+  const [client] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.onboardingToken, clean));
+  return client ?? null;
+}
+
+/** Het beheerbare checklist-hoofdsjabloon, op volgorde. */
+export async function getChecklistTemplate(): Promise<ChecklistTemplateItem[]> {
+  await requireSession();
+  return db
+    .select()
+    .from(checklistTemplate)
+    .orderBy(asc(checklistTemplate.volgorde), asc(checklistTemplate.id));
+}
+
+/** Alle gekoppelde mailaccounts, oudste eerst. Bevat het versleutelde wachtwoord. */
+export async function getMailAccounts(): Promise<MailAccount[]> {
+  await requireSession();
+  return db.select().from(mailAccounts).orderBy(asc(mailAccounts.id));
+}
+
+/** Alle mailaccounts zonder het versleutelde wachtwoord — veilig voor de UI. */
+export async function getMailAccountViews(): Promise<MailAccountView[]> {
+  await requireSession();
+  return db
+    .select({
+      id: mailAccounts.id,
+      naam: mailAccounts.naam,
+      email: mailAccounts.email,
+      imapHost: mailAccounts.imapHost,
+      imapPort: mailAccounts.imapPort,
+      smtpHost: mailAccounts.smtpHost,
+      smtpPort: mailAccounts.smtpPort,
+      smtpSecure: mailAccounts.smtpSecure,
+      username: mailAccounts.username,
+      sentFolder: mailAccounts.sentFolder,
+      trashFolder: mailAccounts.trashFolder,
+      lastSeenUid: mailAccounts.lastSeenUid,
+      uidValidity: mailAccounts.uidValidity,
+      lastSyncAt: mailAccounts.lastSyncAt,
+      lastError: mailAccounts.lastError,
+      styleProfile: mailAccounts.styleProfile,
+      styleImportedAt: mailAccounts.styleImportedAt,
+      active: mailAccounts.active,
+      createdAt: mailAccounts.createdAt,
+    })
+    .from(mailAccounts)
+    .orderBy(asc(mailAccounts.id));
+}
+
+/** Eén mailaccount op id, of null. */
+export async function getMailAccount(id: number): Promise<MailAccount | null> {
+  await requireSession();
+  const [row] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, id));
+  return row ?? null;
+}
+
+/** Eén mailrij zoals de UI hem nodig heeft (met accountlabel en veilige HTML). */
+export type MailRowView = {
+  id: number;
+  accountId: number;
+  accountNaam: string;
+  accountEmail: string;
+  uid: number;
+  fromAddress: string | null;
+  fromName: string | null;
+  toAddress: string | null;
+  subject: string | null;
+  date: Date | null;
+  snippet: string | null;
+  bodyText: string | null;
+  bodyHtmlSafe: string | null;
+  category: string | null;
+  aiDraft: string | null;
+  aiDraftGeneratedAt: Date | null;
+  status: string;
+};
+
+/** Nieuwe (nog niet afgehandelde) mails, gefilterd op categorie/account. */
+export async function getMailInbox(filter?: {
+  categorie?: string;
+  accountId?: number;
+}): Promise<MailRowView[]> {
+  await requireSession();
+
+  const conds = [eq(mailMessages.status, "nieuw")];
+  if (filter?.categorie) conds.push(eq(mailMessages.category, filter.categorie));
+  if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+
+  const rows = await db
+    .select({
+      id: mailMessages.id,
+      accountId: mailMessages.accountId,
+      accountNaam: mailAccounts.naam,
+      accountEmail: mailAccounts.email,
+      uid: mailMessages.uid,
+      fromAddress: mailMessages.fromAddress,
+      fromName: mailMessages.fromName,
+      toAddress: mailMessages.toAddress,
+      subject: mailMessages.subject,
+      date: mailMessages.date,
+      snippet: mailMessages.snippet,
+      bodyText: mailMessages.bodyText,
+      bodyHtml: mailMessages.bodyHtml,
+      category: mailMessages.category,
+      aiDraft: mailMessages.aiDraft,
+      aiDraftGeneratedAt: mailMessages.aiDraftGeneratedAt,
+      status: mailMessages.status,
+    })
+    .from(mailMessages)
+    .innerJoin(mailAccounts, eq(mailMessages.accountId, mailAccounts.id))
+    .where(and(...conds))
+    .orderBy(desc(mailMessages.date), desc(mailMessages.id))
+    .limit(300);
+
+  return rows.map(({ bodyHtml, ...r }) => ({
+    ...r,
+    bodyHtmlSafe: bodyHtml ? sanitizeEmailHtml(bodyHtml) : null,
+  }));
+}
+
+/** Aantallen per categorie voor de nieuwe mails (voor de tabbladen). */
+export async function getMailCategoryCounts(): Promise<Record<string, number>> {
+  await requireSession();
+  const rows = await db
+    .select({ category: mailMessages.category, n: count() })
+    .from(mailMessages)
+    .where(eq(mailMessages.status, "nieuw"))
+    .groupBy(mailMessages.category);
+
+  const out: Record<string, number> = {};
+  let totaal = 0;
+  for (const r of rows) {
+    if (r.category) out[r.category] = r.n;
+    totaal += r.n;
+  }
+  out.__totaal = totaal;
+  return out;
 }

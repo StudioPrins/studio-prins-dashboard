@@ -1,7 +1,13 @@
 "use client";
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import { toggleTask, addTask, deleteTask } from "@/lib/actions/clients";
+import {
+  toggleTask,
+  addTask,
+  deleteTask,
+  renameTask,
+  moveTask,
+} from "@/lib/actions/clients";
 import type { Task } from "@/lib/db/schema";
 
 export function Checklist({
@@ -19,6 +25,7 @@ export function Checklist({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const done = optimistic.filter((t) => t.done).length;
   const total = optimistic.length;
@@ -49,6 +56,21 @@ export function Checklist({
     });
   }
 
+  function move(id: number, richting: "up" | "down") {
+    startTransition(async () => {
+      await moveTask(id, clientId, richting);
+    });
+  }
+
+  function saveRename(id: number, titel: string) {
+    const clean = titel.trim();
+    setEditingId(null);
+    if (!clean) return;
+    startTransition(async () => {
+      await renameTask(id, clientId, clean);
+    });
+  }
+
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
@@ -69,50 +91,89 @@ export function Checklist({
       </div>
 
       <ul className="flex flex-col">
-        {optimistic.map((task) => (
+        {optimistic.map((task, i) => (
           <li
             key={task.id}
-            className="group flex items-center gap-3 py-2 border-b border-line last:border-0"
+            className="group flex items-center gap-2 py-2 border-b border-line last:border-0"
           >
             <button
               onClick={() => toggle(task)}
-              className="flex items-center gap-3 text-left flex-1 min-w-0"
+              aria-label={task.done ? "Afvinken ongedaan maken" : "Afvinken"}
+              className="grid place-items-center w-5 h-5 rounded-md border shrink-0 transition-colors"
+              style={
+                task.done
+                  ? { background: "var(--success)", borderColor: "var(--success)" }
+                  : { borderColor: "var(--line-strong)" }
+              }
             >
-              <span
-                className="grid place-items-center w-5 h-5 rounded-md border shrink-0 transition-colors"
-                style={
-                  task.done
-                    ? { background: "var(--success)", borderColor: "var(--success)" }
-                    : { borderColor: "var(--line-strong)" }
-                }
-              >
-                {task.done && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M5 12l4 4 10-10"
-                      stroke="#fff"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </span>
-              <span
-                className={`text-sm truncate ${task.done ? "text-muted line-through" : "text-ink"}`}
-              >
-                {task.titel}
-              </span>
+              {task.done && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5 12l4 4 10-10"
+                    stroke="#fff"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             </button>
-            <button
-              onClick={() => remove(task.id)}
-              aria-label="Verwijderen"
-              className="opacity-0 group-hover:opacity-100 text-muted hover:text-danger transition-opacity shrink-0"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+
+            {editingId === task.id ? (
+              <input
+                autoFocus
+                defaultValue={task.titel}
+                className="input flex-1 min-w-0 py-1 h-8"
+                onBlur={(e) => saveRename(task.id, e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveRename(task.id, e.currentTarget.value);
+                  if (e.key === "Escape") setEditingId(null);
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => toggle(task)}
+                onDoubleClick={() => setEditingId(task.id)}
+                className="text-left flex-1 min-w-0"
+              >
+                <span
+                  className={`text-sm truncate block ${task.done ? "text-muted line-through" : "text-ink"}`}
+                >
+                  {task.titel}
+                </span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <IconButton
+                label="Omhoog"
+                disabled={i === 0}
+                onClick={() => move(task.id, "up")}
+              >
+                <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </IconButton>
+              <IconButton
+                label="Omlaag"
+                disabled={i === optimistic.length - 1}
+                onClick={() => move(task.id, "down")}
+              >
+                <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </IconButton>
+              <IconButton label="Hernoemen" onClick={() => setEditingId(task.id)}>
+                <path
+                  d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </IconButton>
+              <IconButton label="Verwijderen" danger onClick={() => remove(task.id)}>
+                <path
+                  d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </IconButton>
+            </div>
           </li>
         ))}
       </ul>
@@ -128,6 +189,41 @@ export function Checklist({
           Toevoegen
         </button>
       </form>
+      <p className="mt-2 text-xs text-muted">
+        Tip: dubbelklik op een taak om te hernoemen. Beheer de standaardlijst voor nieuwe
+        klanten via Instellingen.
+      </p>
     </div>
+  );
+}
+
+function IconButton({
+  label,
+  children,
+  onClick,
+  disabled,
+  danger,
+}: {
+  label: string;
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={`grid place-items-center w-7 h-7 rounded-md transition-colors disabled:opacity-30 ${
+        danger ? "text-muted hover:text-danger" : "text-muted hover:text-ink"
+      } hover:bg-surface-2`}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+        {children}
+      </svg>
+    </button>
   );
 }

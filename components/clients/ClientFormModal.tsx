@@ -42,7 +42,7 @@ export function ClientFormModal({
         width={640}
       >
         <form action={formAction} className="flex flex-col gap-5">
-          <ClientFields client={client} />
+          <ClientFields client={client} minimal={mode === "create"} />
           {state.error && (
             <p
               className="text-sm rounded-[10px] px-3 py-2"
@@ -70,7 +70,8 @@ export function ClientFormModal({
         </form>
         {mode === "create" && (
           <p className="mt-3 text-xs text-muted">
-            De onboarding-checklist wordt automatisch aangemaakt.
+            De onboarding-checklist wordt automatisch aangemaakt. Daarna kun je met één klik
+            de onboardingmail met intakeformulier versturen.
           </p>
         )}
       </Modal>

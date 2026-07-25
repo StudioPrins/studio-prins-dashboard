@@ -1,11 +1,49 @@
 import { CLIENT_STATUSES, CLIENT_STATUS_KEYS } from "@/lib/status";
 import type { Client } from "@/lib/db/schema";
 
-export function ClientFields({ client }: { client?: Client }) {
+export function ClientFields({
+  client,
+  minimal = false,
+}: {
+  client?: Client;
+  minimal?: boolean;
+}) {
   const abon =
     client && client.abonnementCents
       ? (client.abonnementCents / 100).toString().replace(".", ",")
       : "";
+
+  // Bij een nieuwe klant vragen we alleen bedrijfsnaam + e-mail; de rest van de
+  // gegevens komt via het intakeformulier binnen (of later via Bewerken).
+  if (minimal) {
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        <div>
+          <label className="label">Bedrijfsnaam *</label>
+          <input
+            name="bedrijf"
+            required
+            defaultValue={client?.bedrijf ?? ""}
+            className="input"
+            placeholder="Bakkerij de Korenbloem"
+          />
+        </div>
+        <div>
+          <label className="label">E-mailadres</label>
+          <input
+            name="email"
+            type="email"
+            defaultValue={client?.email ?? ""}
+            className="input"
+            placeholder="info@klant.nl"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Hier sturen we de onboardingmail met het intakeformulier naartoe.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4">

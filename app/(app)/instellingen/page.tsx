@@ -1,17 +1,24 @@
 import { PageHeader } from "@/components/PageHeader";
 import { SettingsForm } from "@/components/settings/SettingsForm";
-import { getCompanySettings } from "@/lib/queries";
+import { ChecklistTemplateEditor } from "@/components/settings/ChecklistTemplateEditor";
+import { getCompanySettings, getChecklistTemplate } from "@/lib/queries";
 
 export default async function InstellingenPage() {
-  const bedrijf = await getCompanySettings();
+  const [bedrijf, template] = await Promise.all([
+    getCompanySettings(),
+    getChecklistTemplate(),
+  ]);
 
   return (
     <div className="p-5 sm:p-8 max-w-[820px] mx-auto">
       <PageHeader
-        title="Bedrijfsgegevens"
-        subtitle="Deze gegevens verschijnen op elke factuur en offerte."
+        title="Instellingen"
+        subtitle="Bedrijfsgegevens voor de facturen en de standaard onboarding-checklist."
       />
-      <SettingsForm bedrijf={bedrijf} />
+      <div className="flex flex-col gap-8">
+        <SettingsForm bedrijf={bedrijf} />
+        <ChecklistTemplateEditor items={template} />
+      </div>
     </div>
   );
 }
