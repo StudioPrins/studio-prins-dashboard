@@ -4,8 +4,12 @@ import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, type MailAccount } from "@/lib/db/schema";
 import { fetchNewInboxMessages } from "./imap";
 import { categorizeMails, type CategorizeInput } from "@/lib/ai/mail-ai";
+import { heuristicCategory } from "./prefilter";
 
 const FETCH_PER_ACCOUNT = 25;
+// De gratis vóórfilter is goedkoop, dus we scannen ruim; alleen wat er ná de
+// filter overblijft gaat (begrensd) naar de betaalde AI.
+const PREFILTER_SCAN = 200;
 const CATEGORIZE_PER_RUN = 40;
 const CATEGORIZE_BATCH = 20;
 
@@ -93,7 +97,11 @@ async function syncAccount(account: MailAccount): Promise<AccountSyncResult> {
   }
 }
 
-/** Categoriseert nog-niet-gecategoriseerde nieuwe mails, in batches. */
+/**
+ * Categoriseert nog-niet-gecategoriseerde nieuwe mails. Eerst een gratis
+ * regel-vóórfilter (nieuwsbrieven/notificaties), daarna gaat alleen de rest —
+ * begrensd — naar de betaalde AI.
+ */
 async function categorizeNew(): Promise<number> {
   const rows = await db
     .select({
@@ -101,17 +109,38 @@ async function categorizeNew(): Promise<number> {
       fromAddress: mailMessages.fromAddress,
       subject: mailMessages.subject,
       bodyText: mailMessages.bodyText,
+      bodyHtml: mailMessages.bodyHtml,
       snippet: mailMessages.snippet,
     })
     .from(mailMessages)
     .where(and(isNull(mailMessages.category), eq(mailMessages.status, "nieuw")))
-    .limit(CATEGORIZE_PER_RUN);
+    .limit(PREFILTER_SCAN);
 
   if (rows.length === 0) return 0;
 
   let done = 0;
-  for (let i = 0; i < rows.length; i += CATEGORIZE_BATCH) {
-    const batch = rows.slice(i, i + CATEGORIZE_BATCH);
+  const needAI: typeof rows = [];
+
+  // 1) Gratis vóórfilter voor de overduidelijke gevallen.
+  for (const r of rows) {
+    const cat = heuristicCategory({
+      fromAddress: r.fromAddress,
+      subject: r.subject,
+      bodyText: r.bodyText,
+      bodyHtml: r.bodyHtml,
+    });
+    if (cat) {
+      await db.update(mailMessages).set({ category: cat }).where(eq(mailMessages.id, r.id));
+      done++;
+    } else {
+      needAI.push(r);
+    }
+  }
+
+  // 2) De rest naar Claude (Haiku), begrensd per run; overige wachten op de volgende run.
+  const forAI = needAI.slice(0, CATEGORIZE_PER_RUN);
+  for (let i = 0; i < forAI.length; i += CATEGORIZE_BATCH) {
+    const batch = forAI.slice(i, i + CATEGORIZE_BATCH);
     const input: CategorizeInput[] = batch.map((r) => ({
       id: r.id,
       from: r.fromAddress ?? "onbekend",

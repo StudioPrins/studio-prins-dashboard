@@ -1,6 +1,6 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
-import { anthropic, MODEL, textOf } from "./claude";
+import { anthropic, MODEL_CATEGORIZE, MODEL_DRAFT, textOf } from "./claude";
 import type { MailAccount } from "@/lib/db/schema";
 
 /* --- Categorieën ---------------------------------------------------------- */
@@ -75,7 +75,7 @@ export async function categorizeMails(
   }));
 
   const message = await anthropic().messages.create({
-    model: MODEL,
+    model: MODEL_CATEGORIZE,
     max_tokens: 2000,
     system: [{ type: "text", text: CATEGORIZE_SYSTEM }],
     output_config: { format: { type: "json_schema", schema: CATEGORY_SCHEMA } },
@@ -130,7 +130,7 @@ export async function distillStyleProfile(
     .join("\n\n");
 
   const message = await anthropic().messages.create({
-    model: MODEL,
+    model: MODEL_DRAFT,
     max_tokens: 2000,
     thinking: { type: "adaptive" },
     system: [{ type: "text", text: STYLE_SYSTEM }],
@@ -218,7 +218,7 @@ export async function generateDraft(
   ];
 
   const response = await anthropic().messages.create({
-    model: MODEL,
+    model: MODEL_DRAFT,
     max_tokens: 16000,
     thinking: { type: "adaptive" },
     system,

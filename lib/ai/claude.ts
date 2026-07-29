@@ -1,8 +1,14 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 
-/** Standaardmodel voor de mailassistent. */
-export const MODEL = "claude-opus-4-8";
+/**
+ * Modellen per taak, gekozen op kosten/kwaliteit:
+ * - Categoriseren is simpel classificatiewerk → Haiku (goedkoopst).
+ * - Concepten schrijven + stijl distilleren vraagt taalgevoel → Sonnet.
+ * Bewust géén Opus meer: fors duurder zonder merkbaar betere mails hier.
+ */
+export const MODEL_CATEGORIZE = "claude-haiku-4-5";
+export const MODEL_DRAFT = "claude-sonnet-5";
 
 // Lazy: pas een client maken bij het eerste gebruik, zodat een build zonder
 // ANTHROPIC_API_KEY niet faalt.
