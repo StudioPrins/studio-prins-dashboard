@@ -1,18 +1,44 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { CategoryBadge } from "./CategoryBadge";
 import { MailDetailModal } from "./MailDetailModal";
 import {
   deleteMessagesBulkAction,
   ignoreMessagesBulkAction,
+  deleteCategoryAction,
+  ignoreCategoryAction,
 } from "@/lib/actions/mail";
 import type { MailRowView } from "@/lib/queries";
 
-export function MailList({ messages }: { messages: MailRowView[] }) {
+export function MailList({
+  messages,
+  filter,
+  totalInView,
+  categoryLabel,
+}: {
+  messages: MailRowView[];
+  filter: { categorie?: string; accountId?: number };
+  totalInView: number;
+  categoryLabel?: string;
+}) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [allInCategory, setAllInCategory] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [pending, start] = useTransition();
+  const headerRef = useRef<HTMLInputElement>(null);
+
+  const reset = () => {
+    setSelected(new Set());
+    setAllInCategory(false);
+  };
+
+  useEffect(() => {
+    if (headerRef.current) {
+      headerRef.current.indeterminate =
+        !allInCategory && selected.size > 0 && selected.size < messages.length;
+    }
+  }, [selected, allInCategory, messages.length]);
 
   if (messages.length === 0) {
     return (
@@ -25,54 +51,120 @@ export function MailList({ messages }: { messages: MailRowView[] }) {
     );
   }
 
-  const toggle = (id: number) =>
+  const toggle = (id: number) => {
+    setAllInCategory(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
 
-  const clear = () => setSelected(new Set());
+  const allVisibleSelected = selected.size === messages.length;
+  const moreThanShown = !!filter.categorie && totalInView > messages.length;
 
-  const bulkDelete = () =>
-    start(async () => {
-      await deleteMessagesBulkAction([...selected]);
-      clear();
-    });
-  const bulkIgnore = () =>
-    start(async () => {
-      await ignoreMessagesBulkAction([...selected]);
-      clear();
-    });
+  const toggleAllVisible = () => {
+    if (allVisibleSelected) reset();
+    else {
+      setSelected(new Set(messages.map((m) => m.id)));
+      setAllInCategory(false);
+    }
+  };
+
+  const label = categoryLabel ?? "deze categorie";
+  const selCount = allInCategory ? totalInView : selected.size;
+
+  const runDelete = () => {
+    if (allInCategory) {
+      if (
+        !window.confirm(
+          `Weet je zeker dat je alle ${totalInView} mails in ${label} naar de prullenbak verplaatst?`
+        )
+      )
+        return;
+      start(async () => {
+        await deleteCategoryAction(filter);
+        reset();
+      });
+    } else {
+      const ids = [...selected];
+      start(async () => {
+        await deleteMessagesBulkAction(ids);
+        reset();
+      });
+    }
+  };
+
+  const runIgnore = () => {
+    if (allInCategory) {
+      start(async () => {
+        await ignoreCategoryAction(filter);
+        reset();
+      });
+    } else {
+      const ids = [...selected];
+      start(async () => {
+        await ignoreMessagesBulkAction(ids);
+        reset();
+      });
+    }
+  };
 
   const openMessage = messages.find((m) => m.id === openId) ?? null;
 
   return (
     <>
-      {selected.size > 0 && (
+      {selCount > 0 && (
         <div className="card flex items-center gap-2 px-4 py-2.5 mb-3 sticky top-2 z-10">
-          <span className="text-sm font-medium">{selected.size} geselecteerd</span>
+          <span className="text-sm font-medium">{selCount} geselecteerd</span>
           <div className="ml-auto flex items-center gap-2">
-            <button className="btn btn-secondary text-xs px-2.5 py-1.5" disabled={pending} onClick={bulkIgnore}>
-              Negeer selectie
+            <button className="btn btn-secondary text-xs px-2.5 py-1.5" disabled={pending} onClick={runIgnore}>
+              {allInCategory ? `Negeer alle ${totalInView}` : "Negeer selectie"}
             </button>
-            <button className="btn btn-danger text-xs px-2.5 py-1.5" disabled={pending} onClick={bulkDelete}>
-              Verwijder selectie
+            <button className="btn btn-danger text-xs px-2.5 py-1.5" disabled={pending} onClick={runDelete}>
+              {allInCategory ? `Verwijder alle ${totalInView}` : "Verwijder selectie"}
             </button>
-            <button className="btn btn-ghost text-xs px-2.5 py-1.5" onClick={clear}>
+            <button className="btn btn-ghost text-xs px-2.5 py-1.5" onClick={reset}>
               Wis selectie
             </button>
           </div>
         </div>
       )}
 
+      {/* Hele-categorie-banner (Gmail-patroon): alleen als alle zichtbare zijn geselecteerd
+          én er meer buiten de getoonde lijst staan. */}
+      {allVisibleSelected && moreThanShown && (
+        <div className="card px-4 py-2.5 mb-3 text-sm text-center" style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}>
+          {allInCategory ? (
+            <>Alle <strong>{totalInView}</strong> mails in {label} zijn geselecteerd.</>
+          ) : (
+            <>
+              Alle {messages.length} mails op deze pagina zijn geselecteerd.{" "}
+              <button className="underline font-medium" onClick={() => setAllInCategory(true)}>
+                Selecteer alle {totalInView} in {label}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="card divide-y divide-line overflow-hidden" style={{ opacity: pending ? 0.6 : 1 }}>
+        <div className="flex items-center gap-3 px-4 py-2 bg-surface-2">
+          <input
+            ref={headerRef}
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={toggleAllVisible}
+            aria-label="Selecteer alle zichtbare"
+          />
+          <span className="text-xs text-muted">Selecteer alles op deze pagina</span>
+        </div>
         {messages.map((m) => (
           <div key={m.id} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2">
             <input
               type="checkbox"
-              checked={selected.has(m.id)}
+              checked={allInCategory || selected.has(m.id)}
               onChange={() => toggle(m.id)}
               onClick={(e) => e.stopPropagation()}
               aria-label="Selecteer"

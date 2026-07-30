@@ -1,12 +1,12 @@
 import "server-only";
 import { and, desc, eq, inArray, asc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, mailAccounts, mailMessages } from "@/lib/db/schema";
+import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, intakeFields, mailAccounts, mailMessages } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize";
 import { BEDRIJF } from "@/lib/bedrijf";
-import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, MailAccount, MailAccountView } from "@/lib/db/schema";
+import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, IntakeFieldRow, MailAccount, MailAccountView } from "@/lib/db/schema";
 
 /** Effectieve bedrijfsgegevens: DB-instellingen over de code-defaults heen. */
 export type Bedrijf = {
@@ -219,6 +219,20 @@ export async function getChecklistTemplate(): Promise<ChecklistTemplateItem[]> {
     .orderBy(asc(checklistTemplate.volgorde), asc(checklistTemplate.id));
 }
 
+/**
+ * De beheerbare vragen van het intakeformulier, op volgorde.
+ *
+ * Bewust ZONDER requireSession(): het publieke intakeformulier op
+ * /onboarding/[token] rendert deze definities voor niet-ingelogde klanten.
+ * Het gaat om veldlabels, niet om klantgegevens.
+ */
+export async function getIntakeFields(): Promise<IntakeFieldRow[]> {
+  return db
+    .select()
+    .from(intakeFields)
+    .orderBy(asc(intakeFields.volgorde), asc(intakeFields.id));
+}
+
 /** Alle gekoppelde mailaccounts, oudste eerst. Bevat het versleutelde wachtwoord. */
 export async function getMailAccounts(): Promise<MailAccount[]> {
   await requireSession();
@@ -323,6 +337,28 @@ export async function getMailInbox(filter?: {
     ...r,
     bodyHtmlSafe: bodyHtml ? sanitizeEmailHtml(bodyHtml) : null,
   }));
+}
+
+/**
+ * Het echte totaal aantal mails voor de huidige weergave (zelfde filter als
+ * getMailInbox, zonder de 300-limiet). Voor de "selecteer alle N in categorie".
+ */
+export async function getMailInboxCount(filter?: {
+  categorie?: string;
+  accountId?: number;
+}): Promise<number> {
+  await requireSession();
+
+  const conds = [eq(mailMessages.status, "nieuw")];
+  if (filter?.categorie) conds.push(eq(mailMessages.category, filter.categorie));
+  if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(mailMessages)
+    .where(and(...conds));
+
+  return row?.n ?? 0;
 }
 
 /** Aantallen per categorie voor de nieuwe mails (voor de tabbladen). */

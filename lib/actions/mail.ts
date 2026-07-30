@@ -1,6 +1,6 @@
 "use server";
 
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, mailStyleExamples } from "@/lib/db/schema";
@@ -186,6 +186,77 @@ export async function ignoreMessagesBulkAction(ids: number[]): Promise<void> {
   if (ids.length === 0) return;
   await db.update(mailMessages).set({ status: "genegeerd" }).where(inArray(mailMessages.id, ids));
   revalidatePath("/mail");
+}
+
+/* --- Hele categorie in één keer (ook buiten de getoonde lijst) ------------- */
+
+export interface MailCategoryFilter {
+  categorie?: string;
+  accountId?: number;
+}
+
+/** Bouwt de where-condities voor een categorie-brede actie. */
+function categoryConds(filter: MailCategoryFilter) {
+  const conds = [
+    eq(mailMessages.status, "nieuw"),
+    eq(mailMessages.category, filter.categorie!),
+  ];
+  if (filter.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+  return conds;
+}
+
+/**
+ * Verplaatst álle mails van een categorie naar de Prullenbak — ook mails buiten
+ * de getoonde 300. Werkt op query, niet op een id-lijst. Vereist een categorie
+ * (nooit de hele inbox in één keer).
+ */
+export async function deleteCategoryAction(filter: MailCategoryFilter): Promise<number> {
+  await requireSession();
+  if (!filter.categorie) return 0;
+
+  const conds = categoryConds(filter);
+  const rows = await db
+    .select({ accountId: mailMessages.accountId, uid: mailMessages.uid })
+    .from(mailMessages)
+    .where(and(...conds));
+
+  if (rows.length === 0) return 0;
+
+  // Per account groeperen; UID's in batches naar de Prullenbak.
+  const byAccount = new Map<number, number[]>();
+  for (const r of rows) {
+    if (!r.uid) continue;
+    const arr = byAccount.get(r.accountId);
+    if (arr) arr.push(r.uid);
+    else byAccount.set(r.accountId, [r.uid]);
+  }
+
+  for (const [accountId, uids] of byAccount) {
+    const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, accountId));
+    if (!account) continue;
+    for (let i = 0; i < uids.length; i += 500) {
+      try {
+        await moveToTrash(account, uids.slice(i, i + 500));
+      } catch {
+        // IMAP-fout niet-fataal; lokaal markeren gebeurt hieronder
+      }
+    }
+  }
+
+  await db.update(mailMessages).set({ status: "verwijderd" }).where(and(...conds));
+  revalidatePath("/mail");
+  return rows.length;
+}
+
+/** Markeert álle mails van een categorie als genegeerd (DB-only, net als de bulk-negeer). */
+export async function ignoreCategoryAction(filter: MailCategoryFilter): Promise<number> {
+  await requireSession();
+  if (!filter.categorie) return 0;
+
+  const conds = categoryConds(filter);
+  const rows = await db.update(mailMessages).set({ status: "genegeerd" }).where(and(...conds)).returning({ id: mailMessages.id });
+  revalidatePath("/mail");
+  return rows.length;
 }
 
 /** Markeert een geopende mail als gelezen op de server (\Seen), best-effort. */

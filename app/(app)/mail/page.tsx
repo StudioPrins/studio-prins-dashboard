@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { SyncButton } from "@/components/mail/SyncButton";
 import { MailList } from "@/components/mail/MailList";
-import { getMailInbox, getMailCategoryCounts, getMailAccountViews } from "@/lib/queries";
+import { getMailInbox, getMailInboxCount, getMailCategoryCounts, getMailAccountViews } from "@/lib/queries";
 import { MAIL_CATEGORY_STYLES } from "@/lib/status";
 
 const CATEGORY_ORDER = [
@@ -21,8 +21,9 @@ export default async function MailPage({
   const { categorie, account } = await searchParams;
   const accountId = account ? Number(account) : undefined;
 
-  const [messages, counts, accounts] = await Promise.all([
+  const [messages, totalInView, counts, accounts] = await Promise.all([
     getMailInbox({ categorie, accountId }),
+    getMailInboxCount({ categorie, accountId }),
     getMailCategoryCounts(),
     getMailAccountViews(),
   ]);
@@ -93,7 +94,12 @@ export default async function MailPage({
         </div>
       )}
 
-      <MailList messages={messages} />
+      <MailList
+        messages={messages}
+        filter={{ categorie, accountId }}
+        totalInView={totalInView}
+        categoryLabel={categorie ? MAIL_CATEGORY_STYLES[categorie]?.label : undefined}
+      />
     </div>
   );
 }
