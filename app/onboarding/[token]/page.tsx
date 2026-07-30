@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
-import { getClientByToken } from "@/lib/queries";
+import { getClientByToken, getIntakeFields } from "@/lib/queries";
 import { IntakeForm } from "./IntakeForm";
 
 export const metadata: Metadata = {
@@ -17,6 +17,8 @@ export default async function OnboardingPage({
   const { token } = await params;
   const client = await getClientByToken(token);
   if (!client) notFound();
+
+  const websiteFields = await getIntakeFields();
 
   // Bestaande waarden voorvullen zodat de klant kan aanvullen/corrigeren.
   const billingDefaults: Record<string, string> = {
@@ -78,6 +80,7 @@ export default async function OnboardingPage({
           <div className="mt-7">
             <IntakeForm
               token={token}
+              websiteFields={websiteFields}
               billingDefaults={billingDefaults}
               websiteDefaults={websiteDefaults}
               alreadySubmitted={Boolean(client.intakeSubmittedAt)}

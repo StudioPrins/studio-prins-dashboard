@@ -1,12 +1,12 @@
 import type { Client } from "@/lib/db/schema";
-import { WEBSITE_FIELDS } from "@/lib/intake-fields";
+import { getIntakeFields } from "@/lib/queries";
 import { formatDate } from "@/lib/format";
 
 /**
  * Toont de door de klant aangeleverde intake-gegevens (facturatie + websitewensen).
  * Alleen zichtbaar zodra het formulier is ingevuld.
  */
-export function IntakeSummary({ client }: { client: Client }) {
+export async function IntakeSummary({ client }: { client: Client }) {
   if (!client.intakeSubmittedAt) return null;
 
   const facturatie: [string, string | null][] = [
@@ -21,9 +21,16 @@ export function IntakeSummary({ client }: { client: Client }) {
     ["IBAN", client.iban],
   ];
   const intake = (client.intake ?? {}) as Record<string, string>;
-  const wensen = WEBSITE_FIELDS.map((f) => [f.label, intake[f.name]] as const).filter(
-    ([, v]) => v && v.trim()
-  );
+  const velden = await getIntakeFields();
+
+  // Eerst de vragen zoals ze nu in het formulier staan, daarna antwoorden op
+  // vragen die inmiddels verwijderd zijn — die vallen terug op hun sleutelnaam,
+  // zodat een verwijderde vraag nooit stilzwijgend data verbergt.
+  const bekend = new Set(velden.map((f) => f.naam));
+  const wensen: (readonly [string, string])[] = [
+    ...velden.map((f) => [f.label, intake[f.naam]] as const),
+    ...Object.entries(intake).filter(([k]) => !bekend.has(k)),
+  ].filter((r): r is readonly [string, string] => Boolean(r[1] && r[1].trim()));
 
   return (
     <div className="card p-5">

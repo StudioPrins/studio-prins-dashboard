@@ -1,6 +1,10 @@
 /**
- * Velddefinities voor het intakeformulier. Op één plek zodat het formulier,
- * de e-mail en de weergave op de klantpagina consistent blijven.
+ * Velddefinities voor het intakeformulier.
+ *
+ * De bedrijfsgegevens (BILLING_FIELDS) liggen vast: ze schrijven naar echte
+ * kolommen op de klant en worden op facturen gebruikt. De websitewensen zijn
+ * beheerbaar via /instellingen en staan in de tabel `intake_fields`; de lijst
+ * hieronder is alleen nog de seed-standaard bij het aanmaken van die tabel.
  */
 
 export type IntakeField = {
@@ -13,7 +17,7 @@ export type IntakeField = {
 
 /**
  * Facturatie-/bedrijfsgegevens. Deze worden opgeslagen in kolommen op de klant
- * en gebruikt op facturen.
+ * en gebruikt op facturen. Vast — niet beheerbaar.
  */
 export const BILLING_FIELDS: IntakeField[] = [
   { name: "contactpersoon", label: "Contactpersoon", placeholder: "Voor- en achternaam" },
@@ -27,23 +31,44 @@ export const BILLING_FIELDS: IntakeField[] = [
   { name: "iban", label: "IBAN (voor facturen)", placeholder: "NL00 BANK 0123 4567 89" },
 ];
 
+/** Soort invoerveld voor een beheerbare intakevraag. */
+export type IntakeSoort = "tekst" | "tekstvak";
+
+export type StandaardVeld = {
+  naam: string;
+  label: string;
+  placeholder: string;
+  soort: IntakeSoort;
+};
+
 /**
- * Vrije wensen voor de website. Deze worden als JSON in `clients.intake`
- * opgeslagen (Record<naam, waarde>).
+ * Startset websitewensen. Wordt éénmalig in `intake_fields` gezet door
+ * scripts/migrate-intake-fields.ts; daarna is de tabel leidend.
  */
-export const WEBSITE_FIELDS: IntakeField[] = [
-  { name: "domeinnaam", label: "Gewenste domeinnaam", placeholder: "bijv. mijnbedrijf.nl" },
-  { name: "doel", label: "Wat is het doel van de website?", textarea: true, placeholder: "Bijv. meer klanten, online reserveren, informatie geven…" },
-  { name: "doelgroep", label: "Wie is de doelgroep?", placeholder: "Wie moet de site bereiken?" },
-  { name: "stijl", label: "Gewenste stijl & uitstraling", textarea: true, placeholder: "Kleuren, sfeer, voorbeelden van huisstijl…" },
-  { name: "paginas", label: "Welke pagina's wil je?", placeholder: "Home, Over ons, Diensten, Contact…" },
-  { name: "functies", label: "Gewenste functionaliteiten", textarea: true, placeholder: "Contactformulier, webshop, agenda, nieuwsbrief…" },
-  { name: "socials", label: "Social media", placeholder: "Links naar Instagram, Facebook, LinkedIn…" },
-  { name: "voorbeelden", label: "Voorbeeldwebsites die je mooi vindt", textarea: true, placeholder: "Plak hier een paar links met wat je er mooi aan vindt" },
-  { name: "opmerkingen", label: "Overige opmerkingen", textarea: true, placeholder: "Alles wat verder handig is om te weten" },
+export const STANDAARD_WEBSITE_VELDEN: StandaardVeld[] = [
+  { naam: "domeinnaam", label: "Gewenste domeinnaam", placeholder: "bijv. mijnbedrijf.nl", soort: "tekst" },
+  { naam: "doel", label: "Wat is het doel van de website?", placeholder: "Bijv. meer klanten, online reserveren, informatie geven…", soort: "tekstvak" },
+  { naam: "doelgroep", label: "Wie is de doelgroep?", placeholder: "Wie moet de site bereiken?", soort: "tekst" },
+  { naam: "stijl", label: "Gewenste stijl & uitstraling", placeholder: "Kleuren, sfeer, voorbeelden van huisstijl…", soort: "tekstvak" },
+  { naam: "paginas", label: "Welke pagina's wil je?", placeholder: "Home, Over ons, Diensten, Contact…", soort: "tekst" },
+  { naam: "functies", label: "Gewenste functionaliteiten", placeholder: "Contactformulier, webshop, agenda, nieuwsbrief…", soort: "tekstvak" },
+  { naam: "socials", label: "Social media", placeholder: "Links naar Instagram, Facebook, LinkedIn…", soort: "tekst" },
+  { naam: "voorbeelden", label: "Voorbeeldwebsites die je mooi vindt", placeholder: "Plak hier een paar links met wat je er mooi aan vindt", soort: "tekstvak" },
+  { naam: "opmerkingen", label: "Overige opmerkingen", placeholder: "Alles wat verder handig is om te weten", soort: "tekstvak" },
 ];
 
-/** Labels opzoekbaar maken voor weergave van opgeslagen intake-antwoorden. */
-export const WEBSITE_FIELD_LABELS: Record<string, string> = Object.fromEntries(
-  WEBSITE_FIELDS.map((f) => [f.name, f.label])
-);
+/**
+ * Maakt van een vraag een stabiele sleutel voor `clients.intake`.
+ * Bewust simpel gehouden: kleine letters, accenten weg, alles wat geen letter of
+ * cijfer is wordt een underscore.
+ */
+export function slugify(label: string): string {
+  const basis = label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  return basis || "vraag";
+}

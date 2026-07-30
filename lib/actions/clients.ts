@@ -15,6 +15,30 @@ function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/**
+ * De velden die zowel bij aanmaken als bewerken uit het formulier komen.
+ * Bevat ook de facturatiegegevens, zodat een klant volledig handmatig kan
+ * worden vastgelegd zonder het intakeformulier.
+ */
+function clientVelden(formData: FormData) {
+  return {
+    contactpersoon: str(formData.get("contactpersoon")) || null,
+    email: str(formData.get("email")) || null,
+    telefoon: str(formData.get("telefoon")) || null,
+    websiteUrl: str(formData.get("websiteUrl")) || null,
+    screenshotOverride: str(formData.get("screenshotOverride")) || null,
+    adres: str(formData.get("adres")) || null,
+    postcode: str(formData.get("postcode")) || null,
+    plaats: str(formData.get("plaats")) || null,
+    kvk: str(formData.get("kvk")) || null,
+    btw: str(formData.get("btw")) || null,
+    iban: str(formData.get("iban")) || null,
+    abonnementCents: euroToCents(str(formData.get("abonnement")) || "0"),
+    status: str(formData.get("status")) || "onboarding",
+    notities: str(formData.get("notities")) || null,
+  };
+}
+
 /** Nieuwe klant + automatisch de onboarding-checklist. Redirect naar detail. */
 export async function createClient(
   _prev: FormState,
@@ -27,18 +51,7 @@ export async function createClient(
 
   const [created] = await db
     .insert(clients)
-    .values({
-      bedrijf,
-      contactpersoon: str(formData.get("contactpersoon")) || null,
-      email: str(formData.get("email")) || null,
-      telefoon: str(formData.get("telefoon")) || null,
-      websiteUrl: str(formData.get("websiteUrl")) || null,
-      screenshotOverride: str(formData.get("screenshotOverride")) || null,
-      adres: str(formData.get("adres")) || null,
-      abonnementCents: euroToCents(str(formData.get("abonnement")) || "0"),
-      status: str(formData.get("status")) || "onboarding",
-      notities: str(formData.get("notities")) || null,
-    })
+    .values({ bedrijf, ...clientVelden(formData) })
     .returning({ id: clients.id });
 
   await seedChecklist(created.id);
@@ -81,18 +94,7 @@ export async function updateClient(
 
   await db
     .update(clients)
-    .set({
-      bedrijf,
-      contactpersoon: str(formData.get("contactpersoon")) || null,
-      email: str(formData.get("email")) || null,
-      telefoon: str(formData.get("telefoon")) || null,
-      websiteUrl: str(formData.get("websiteUrl")) || null,
-      screenshotOverride: str(formData.get("screenshotOverride")) || null,
-      adres: str(formData.get("adres")) || null,
-      abonnementCents: euroToCents(str(formData.get("abonnement")) || "0"),
-      status: str(formData.get("status")) || "onboarding",
-      notities: str(formData.get("notities")) || null,
-    })
+    .set({ bedrijf, ...clientVelden(formData) })
     .where(eq(clients.id, id));
 
   revalidatePath("/");

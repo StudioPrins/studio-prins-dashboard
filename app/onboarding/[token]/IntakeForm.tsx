@@ -2,17 +2,20 @@
 
 import { useActionState } from "react";
 import { submitIntake, type OnboardingState } from "@/lib/actions/onboarding";
-import { BILLING_FIELDS, WEBSITE_FIELDS, type IntakeField } from "@/lib/intake-fields";
+import { BILLING_FIELDS, type IntakeField } from "@/lib/intake-fields";
+import type { IntakeFieldRow } from "@/lib/db/schema";
 
 const initial: OnboardingState = {};
 
 export function IntakeForm({
   token,
+  websiteFields,
   billingDefaults,
   websiteDefaults,
   alreadySubmitted,
 }: {
   token: string;
+  websiteFields: IntakeFieldRow[];
   billingDefaults: Record<string, string>;
   websiteDefaults: Record<string, string>;
   alreadySubmitted: boolean;
@@ -67,8 +70,17 @@ export function IntakeForm({
         <h2 className="font-semibold tracking-tight mb-1">Je wensen voor de website</h2>
         <p className="text-sm text-muted mb-4">Vertel ons wat je voor ogen hebt.</p>
         <div className="grid grid-cols-1 gap-4">
-          {WEBSITE_FIELDS.map((f) => (
-            <FieldInput key={f.name} field={f} def={websiteDefaults[f.name] ?? ""} />
+          {websiteFields.map((f) => (
+            <FieldInput
+              key={f.id}
+              field={{
+                name: f.naam,
+                label: f.label,
+                placeholder: f.placeholder ?? undefined,
+                textarea: f.soort === "tekstvak",
+              }}
+              def={websiteDefaults[f.naam] ?? ""}
+            />
           ))}
         </div>
       </section>

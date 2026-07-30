@@ -1,21 +1,27 @@
 import { CLIENT_STATUSES, CLIENT_STATUS_KEYS } from "@/lib/status";
+import { BILLING_FIELDS } from "@/lib/intake-fields";
 import type { Client } from "@/lib/db/schema";
+
+/** Labels/placeholders van de facturatievelden delen met het intakeformulier. */
+const billing = Object.fromEntries(BILLING_FIELDS.map((f) => [f.name, f]));
+
+export type ClientFieldsVariant = "onboarden" | "volledig";
 
 export function ClientFields({
   client,
-  minimal = false,
+  variant = "volledig",
 }: {
   client?: Client;
-  minimal?: boolean;
+  variant?: ClientFieldsVariant;
 }) {
   const abon =
     client && client.abonnementCents
       ? (client.abonnementCents / 100).toString().replace(".", ",")
       : "";
 
-  // Bij een nieuwe klant vragen we alleen bedrijfsnaam + e-mail; de rest van de
-  // gegevens komt via het intakeformulier binnen (of later via Bewerken).
-  if (minimal) {
+  // Onboarden: alleen wat we nodig hebben om de onboardingmail te versturen.
+  // De rest van de gegevens komt via het intakeformulier binnen.
+  if (variant === "onboarden") {
     return (
       <div className="grid grid-cols-1 gap-4">
         <div>
@@ -29,10 +35,23 @@ export function ClientFields({
           />
         </div>
         <div>
-          <label className="label">E-mailadres</label>
+          <label className="label">Contactpersoon</label>
+          <input
+            name="contactpersoon"
+            defaultValue={client?.contactpersoon ?? ""}
+            className="input"
+            placeholder="Jan Jansen"
+          />
+          <p className="mt-1 text-xs text-muted">
+            We spreken de klant met de voornaam aan in de onboardingmail.
+          </p>
+        </div>
+        <div>
+          <label className="label">E-mailadres *</label>
           <input
             name="email"
             type="email"
+            required
             defaultValue={client?.email ?? ""}
             className="input"
             placeholder="info@klant.nl"
@@ -130,15 +149,69 @@ export function ClientFields({
           placeholder="19"
         />
       </div>
-      <div>
-        <label className="label">Adres (voor facturen)</label>
+
+      <div className="col-span-2 mt-1">
+        <h3 className="text-sm font-medium text-ink">Facturatiegegevens</h3>
+        <p className="mt-0.5 text-xs text-muted">
+          Deze gegevens komen op de facturen. Vult de klant het intakeformulier in, dan
+          worden ze automatisch aangevuld.
+        </p>
+      </div>
+      <div className="col-span-2">
+        <label className="label">{billing.adres.label}</label>
         <input
           name="adres"
           defaultValue={client?.adres ?? ""}
           className="input"
-          placeholder="Straat 1, 3000 AA Plaats"
+          placeholder={billing.adres.placeholder}
         />
       </div>
+      <div>
+        <label className="label">{billing.postcode.label}</label>
+        <input
+          name="postcode"
+          defaultValue={client?.postcode ?? ""}
+          className="input"
+          placeholder={billing.postcode.placeholder}
+        />
+      </div>
+      <div>
+        <label className="label">{billing.plaats.label}</label>
+        <input
+          name="plaats"
+          defaultValue={client?.plaats ?? ""}
+          className="input"
+          placeholder={billing.plaats.placeholder}
+        />
+      </div>
+      <div>
+        <label className="label">{billing.kvk.label}</label>
+        <input
+          name="kvk"
+          defaultValue={client?.kvk ?? ""}
+          className="input"
+          placeholder={billing.kvk.placeholder}
+        />
+      </div>
+      <div>
+        <label className="label">{billing.btw.label}</label>
+        <input
+          name="btw"
+          defaultValue={client?.btw ?? ""}
+          className="input"
+          placeholder={billing.btw.placeholder}
+        />
+      </div>
+      <div className="col-span-2">
+        <label className="label">{billing.iban.label}</label>
+        <input
+          name="iban"
+          defaultValue={client?.iban ?? ""}
+          className="input"
+          placeholder={billing.iban.placeholder}
+        />
+      </div>
+
       <div className="col-span-2">
         <label className="label">Notities</label>
         <textarea

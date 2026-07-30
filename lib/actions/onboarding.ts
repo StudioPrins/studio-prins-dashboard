@@ -6,11 +6,10 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { clients } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
-import { getCompanySettings } from "@/lib/queries";
+import { getCompanySettings, getIntakeFields } from "@/lib/queries";
 import { generateOnboardingMail } from "@/lib/welcome-mail";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { createClientFolder, isDriveConfigured } from "@/lib/google-drive";
-import { WEBSITE_FIELDS } from "@/lib/intake-fields";
 import { publicBaseUrl } from "@/lib/site";
 
 export type OnboardingState = { error?: string; ok?: boolean };
@@ -106,11 +105,12 @@ export async function submitIntake(
     .where(eq(clients.onboardingToken, token));
   if (!client) return { error: "Deze link is niet (meer) geldig." };
 
-  // Websitewensen → intake-JSON.
+  // Websitewensen → intake-JSON. De vragen zijn beheerbaar via /instellingen,
+  // dus we lezen ze uit de database in plaats van uit een constante.
   const intake: Record<string, string> = {};
-  for (const f of WEBSITE_FIELDS) {
-    const v = str(formData.get(f.name));
-    if (v) intake[f.name] = v;
+  for (const f of await getIntakeFields()) {
+    const v = str(formData.get(f.naam));
+    if (v) intake[f.naam] = v;
   }
 
   await db

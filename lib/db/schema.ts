@@ -55,6 +55,24 @@ export const checklistTemplate = pgTable("checklist_template", {
   volgorde: integer("volgorde").notNull().default(0),
 });
 
+/**
+ * Beheerbare vragen van het intakeformulier (alleen de websitewensen — de
+ * bedrijfsgegevens liggen vast omdat die naar echte kolommen op de klant
+ * schrijven). Te beheren via /instellingen.
+ *
+ * `naam` is de sleutel waaronder het antwoord in `clients.intake` belandt en
+ * wijzigt nooit na aanmaken; hernoemen raakt alleen `label`. Zo blijven eerder
+ * gegeven antwoorden aan hun vraag gekoppeld.
+ */
+export const intakeFields = pgTable("intake_fields", {
+  id: serial("id").primaryKey(),
+  naam: text("naam").notNull().unique(),
+  label: text("label").notNull(),
+  placeholder: text("placeholder"),
+  soort: text("soort").notNull().default("tekst"), // tekst | tekstvak
+  volgorde: integer("volgorde").notNull().default(0),
+});
+
 /** Checklist-taken per klant (onboarding + lopend werk). */
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -216,6 +234,7 @@ export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type ChecklistTemplateItem = typeof checklistTemplate.$inferSelect;
+export type IntakeFieldRow = typeof intakeFields.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceLine = typeof invoiceLines.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
