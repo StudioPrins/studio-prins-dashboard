@@ -13,9 +13,10 @@ export function SyncButton() {
       try {
         const res = await syncNowAction();
         const nieuw = res.perAccount.reduce((a, b) => a + b.nieuw, 0);
+        const gelezenElders = res.perAccount.reduce((a, b) => a + b.gelezenElders, 0);
         const fouten = res.perAccount.filter((a) => a.fout).length;
         setMsg(
-          `${nieuw} nieuw · ${res.gecategoriseerd} gecategoriseerd` +
+          `${nieuw} nieuw · ${gelezenElders} elders gelezen · ${res.gecategoriseerd} gecategoriseerd` +
             (fouten ? ` · ${fouten} account(s) met fout` : "")
         );
       } catch (err) {

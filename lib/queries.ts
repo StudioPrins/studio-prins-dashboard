@@ -275,6 +275,7 @@ export async function getMailAccountViews(): Promise<MailAccountView[]> {
       uidValidity: mailAccounts.uidValidity,
       lastSyncAt: mailAccounts.lastSyncAt,
       lastError: mailAccounts.lastError,
+      syncSince: mailAccounts.syncSince,
       styleProfile: mailAccounts.styleProfile,
       styleImportedAt: mailAccounts.styleImportedAt,
       active: mailAccounts.active,

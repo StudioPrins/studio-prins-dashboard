@@ -258,17 +258,3 @@ export async function ignoreCategoryAction(filter: MailCategoryFilter): Promise<
   revalidatePath("/mail");
   return rows.length;
 }
-
-/** Markeert een geopende mail als gelezen op de server (\Seen), best-effort. */
-export async function markReadAction(messageId: number): Promise<void> {
-  await requireSession();
-  const [msg] = await db.select().from(mailMessages).where(eq(mailMessages.id, messageId));
-  if (!msg || !msg.uid) return;
-  const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, msg.accountId));
-  if (!account) return;
-  try {
-    await markSeen(account, msg.uid);
-  } catch {
-    // niet kritiek
-  }
-}

@@ -1,5 +1,5 @@
 import "server-only";
-import { ImapFlow, type ListResponse } from "imapflow";
+import { ImapFlow, type ListResponse, type SearchObject } from "imapflow";
 import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import { decryptSecret } from "./crypto";
 import type { MailAccount } from "@/lib/db/schema";
@@ -163,20 +163,30 @@ async function parseSource(uid: number, source: Buffer): Promise<FetchedMessage>
 
 export interface InboxFetchResult {
   messages: FetchedMessage[];
+  /** Alle ongelezen UID's in de INBOX (ook de niet-opgehaalde) — basis voor afstemming. */
+  unreadUids: number[];
+  /** True als er meer ongelezen mail was dan `limit`; de rest volgt de volgende run. */
+  truncated: boolean;
   highestUid: number | null;
   uidValidity: string;
   /** True als UIDVALIDITY wisselde t.o.v. de opgeslagen waarde (reset nodig). */
   uidValidityChanged: boolean;
 }
 
+function dayKey(d: Date): string {
+  return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+}
+
 /**
- * Haalt tot `limit` nieuwe INBOX-berichten op. Eerste sync (of na een
- * UIDVALIDITY-wissel) pakt de ongelezen berichten; daarna alles met een UID
- * hoger dan de laatst verwerkte.
+ * Haalt alle ongelezen INBOX-berichten op (optioneel vanaf `account.syncSince`),
+ * met uitzondering van UID's die al bekend zijn (`skipUids`). Ophalen van de
+ * berichtinhoud is begrensd op `limit`; de zoekopdracht zelf levert altijd de
+ * volledige lijst ongelezen UID's, zodat de aanroeper kan afstemmen op wat er
+ * elders inmiddels als gelezen is gemarkeerd.
  */
-export async function fetchNewInboxMessages(
+export async function fetchUnreadInboxMessages(
   account: MailAccount,
-  limit = 25
+  opts: { limit: number; skipUids?: Set<number> }
 ): Promise<InboxFetchResult> {
   return withImap(imapCredsFromAccount(account), async (client) => {
     const lock = await client.getMailboxLock("INBOX");
@@ -187,27 +197,17 @@ export async function fetchNewInboxMessages(
       const uidValidityChanged =
         account.uidValidity != null && account.uidValidity !== uidValidity;
 
-      const firstSync = account.lastSeenUid == null || uidValidityChanged;
+      const criteria: SearchObject = { seen: false };
+      if (account.syncSince) criteria.since = account.syncSince;
 
-      let uids: number[] = [];
-      if (firstSync) {
-        const found = await client.search({ seen: false }, { uid: true });
-        uids = Array.isArray(found) ? found : [];
-      } else {
-        const found = await client.search(
-          { uid: `${account.lastSeenUid! + 1}:*` },
-          { uid: true }
-        );
-        // UID N:* geeft altijd minstens de hoogste UID terug, ook als N groter
-        // is — filter dus alles weg dat we al kenden.
-        uids = (Array.isArray(found) ? found : []).filter(
-          (u) => u > account.lastSeenUid!
-        );
-      }
+      const found = await client.search(criteria, { uid: true });
+      const unreadUids = (Array.isArray(found) ? found : []).sort((a, b) => a - b);
 
-      // Oudste eerst, begrensd op `limit`.
-      uids.sort((a, b) => a - b);
-      const batch = uids.slice(0, limit);
+      const todo = opts.skipUids
+        ? unreadUids.filter((u) => !opts.skipUids!.has(u))
+        : unreadUids;
+      const batch = todo.slice(0, opts.limit);
+      const truncated = todo.length > batch.length;
 
       const messages: FetchedMessage[] = [];
       let highestUid: number | null = null;
@@ -218,11 +218,17 @@ export async function fetchNewInboxMessages(
           { uid: true }
         );
         if (!msg || !msg.source) continue;
-        messages.push(await parseSource(uid, msg.source));
+        const parsed = await parseSource(uid, msg.source);
+        // Vangnet: INTERNALDATE (waarop `since` filtert) en de Date-header
+        // kunnen verschillen; berichten zonder Date-header worden behouden.
+        if (account.syncSince && parsed.date && dayKey(parsed.date) < dayKey(account.syncSince)) {
+          continue;
+        }
+        messages.push(parsed);
         highestUid = highestUid == null ? uid : Math.max(highestUid, uid);
       }
 
-      return { messages, highestUid, uidValidity, uidValidityChanged };
+      return { messages, unreadUids, truncated, highestUid, uidValidity, uidValidityChanged };
     } finally {
       lock.release();
     }

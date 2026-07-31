@@ -1,12 +1,14 @@
 import "server-only";
-import { and, eq, isNull, isNotNull } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, type MailAccount } from "@/lib/db/schema";
-import { fetchNewInboxMessages } from "./imap";
+import { fetchUnreadInboxMessages } from "./imap";
 import { categorizeMails, type CategorizeInput } from "@/lib/ai/mail-ai";
 import { heuristicCategory } from "./prefilter";
 
-const FETCH_PER_ACCOUNT = 25;
+// Puur een veiligheidsrem tegen de 300s-functielimiet; door de skiplijst in
+// syncAccount haalt een normale run alleen écht nieuwe mail op.
+const FETCH_PER_ACCOUNT = 200;
 // De gratis vóórfilter is goedkoop, dus we scannen ruim; alleen wat er ná de
 // filter overblijft gaat (begrensd) naar de betaalde AI.
 const PREFILTER_SCAN = 200;
@@ -17,6 +19,7 @@ export interface AccountSyncResult {
   accountId: number;
   email: string;
   nieuw: number;
+  gelezenElders: number;
   fout?: string;
 }
 
@@ -29,8 +32,17 @@ export interface MailSyncResult {
 async function syncAccount(account: MailAccount): Promise<AccountSyncResult> {
   const base = { accountId: account.id, email: account.email };
   try {
-    const { messages, highestUid, uidValidity, uidValidityChanged } =
-      await fetchNewInboxMessages(account, FETCH_PER_ACCOUNT);
+    // Al bekende UID's: alleen écht nieuwe mail moet opgehaald worden. Bij een
+    // UIDVALIDITY-wissel is deze set betekenisloos; de Message-ID-dedupe verderop
+    // vangt dat geval af.
+    const known = await db
+      .select({ uid: mailMessages.uid })
+      .from(mailMessages)
+      .where(and(eq(mailMessages.accountId, account.id), eq(mailMessages.mailbox, "INBOX")));
+    const skipUids = new Set(known.map((r) => r.uid));
+
+    const { messages, unreadUids, highestUid, uidValidity, uidValidityChanged } =
+      await fetchUnreadInboxMessages(account, { limit: FETCH_PER_ACCOUNT, skipUids });
 
     // Bij een UIDVALIDITY-wissel restarten de UID's; dedupliceer dan op Message-ID.
     let skip = new Set<string>();
@@ -70,6 +82,24 @@ async function syncAccount(account: MailAccount): Promise<AccountSyncResult> {
       if (inserted.length > 0) nieuw++;
     }
 
+    // Afstemmen: alles dat lokaal nog "nieuw" is maar niet meer in de
+    // ongelezen-lijst voorkomt, is elders gelezen (of verplaatst/verwijderd).
+    let gelezenElders = 0;
+    if (!uidValidityChanged) {
+      const conds = [
+        eq(mailMessages.accountId, account.id),
+        eq(mailMessages.mailbox, "INBOX"),
+        eq(mailMessages.status, "nieuw"),
+      ];
+      if (unreadUids.length > 0) conds.push(notInArray(mailMessages.uid, unreadUids));
+      const afgestemd = await db
+        .update(mailMessages)
+        .set({ status: "genegeerd" })
+        .where(and(...conds))
+        .returning({ id: mailMessages.id });
+      gelezenElders = afgestemd.length;
+    }
+
     // Sync-state bijwerken. Highest UID alleen verhogen, nooit verlagen (tenzij reset).
     const newLastSeen =
       uidValidityChanged || account.lastSeenUid == null
@@ -86,14 +116,14 @@ async function syncAccount(account: MailAccount): Promise<AccountSyncResult> {
       })
       .where(eq(mailAccounts.id, account.id));
 
-    return { ...base, nieuw };
+    return { ...base, nieuw, gelezenElders };
   } catch (err) {
     const fout = err instanceof Error ? err.message : String(err);
     await db
       .update(mailAccounts)
       .set({ lastError: fout, lastSyncAt: new Date() })
       .where(eq(mailAccounts.id, account.id));
-    return { ...base, nieuw: 0, fout };
+    return { ...base, nieuw: 0, gelezenElders: 0, fout };
   }
 }
 

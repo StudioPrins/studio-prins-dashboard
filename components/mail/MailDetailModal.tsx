@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { CategoryBadge } from "./CategoryBadge";
 import { DraftPanel } from "./DraftPanel";
-import {
-  deleteMessageAction,
-  ignoreMessageAction,
-  markReadAction,
-} from "@/lib/actions/mail";
+import { deleteMessageAction, ignoreMessageAction } from "@/lib/actions/mail";
 import type { MailRowView } from "@/lib/queries";
 
 export function MailDetailModal({
@@ -25,11 +21,6 @@ export function MailDetailModal({
     message.category === "belangrijk" || message.category === "beantwoorden"
   );
   const [pending, start] = useTransition();
-
-  // Bij openen op de server als gelezen markeren (best-effort, één keer).
-  useEffect(() => {
-    if (open) markReadAction(message.id);
-  }, [open, message.id]);
 
   return (
     <Modal open={open} onClose={onClose} title={message.subject ?? "(geen onderwerp)"} width={760}>

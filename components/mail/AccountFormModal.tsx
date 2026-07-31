@@ -11,6 +11,14 @@ import type { MailAccountView } from "@/lib/db/schema";
 
 const initial: FormState = {};
 
+function toDateInput(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+}
+function todayInput(): string {
+  return toDateInput(new Date());
+}
+
 export function AccountFormModal({
   mode,
   account,
@@ -80,9 +88,18 @@ export function AccountFormModal({
             <Field label="Prullenbak-map (optioneel)" name="trashFolder" defaultValue={account?.trashFolder ?? ""} placeholder="auto-detectie" />
           </div>
 
+          <Field
+            label="Synchroniseer vanaf"
+            name="syncSince"
+            type="date"
+            defaultValue={account?.syncSince ? toDateInput(account.syncSince) : todayInput()}
+            className="sm:w-52"
+          />
+
           <p className="text-xs text-muted">
             Mappen worden automatisch gedetecteerd bij het opslaan of testen. Vul ze
-            alleen in als detectie niet lukt.
+            alleen in als detectie niet lukt. Mails van vóór de synchronisatiedatum worden
+            nooit opgehaald; leeg laten = geen ondergrens.
           </p>
 
           {state.error && (

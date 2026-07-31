@@ -174,6 +174,8 @@ export const mailAccounts = pgTable("mail_accounts", {
   uidValidity: text("uid_validity"), // bigint als text; bij wijziging: reset
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
   lastError: text("last_error"),
+  /** Ondergrens voor sync: mails van vóór deze datum worden nooit opgehaald. null = geen grens. */
+  syncSince: timestamp("sync_since", { withTimezone: true }),
   // Schrijfstijl
   styleProfile: text("style_profile"), // door Claude gedistilleerde stijlsamenvatting
   styleImportedAt: timestamp("style_imported_at", { withTimezone: true }),

@@ -27,6 +27,12 @@ function bool(v: FormDataEntryValue | null): boolean {
   const s = str(v).toLowerCase();
   return s === "on" || s === "true" || s === "1";
 }
+function dateOrNull(v: FormDataEntryValue | null): Date | null {
+  const s = str(v);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00+02:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /**
  * Probeert (best-effort) de mappen te detecteren en op te slaan. Faalt dit,
@@ -88,6 +94,7 @@ export async function createMailAccount(
         passwordEnc: encryptSecret(password),
         sentFolder: str(formData.get("sentFolder")) || null,
         trashFolder: str(formData.get("trashFolder")) || null,
+        syncSince: dateOrNull(formData.get("syncSince")),
       })
       .returning({ id: mailAccounts.id });
   } catch (err) {
@@ -138,6 +145,7 @@ export async function updateMailAccount(
     username,
     sentFolder: str(formData.get("sentFolder")) || null,
     trashFolder: str(formData.get("trashFolder")) || null,
+    syncSince: dateOrNull(formData.get("syncSince")),
   };
   if (password) values.passwordEnc = encryptSecret(password);
 
