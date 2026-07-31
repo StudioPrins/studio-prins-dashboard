@@ -1,12 +1,12 @@
 import "server-only";
 import { and, desc, eq, inArray, asc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, intakeFields, mailAccounts, mailMessages } from "@/lib/db/schema";
+import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, intakeFields, mailAccounts, mailMessages, uren } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize";
 import { BEDRIJF } from "@/lib/bedrijf";
-import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, IntakeFieldRow, MailAccount, MailAccountView } from "@/lib/db/schema";
+import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, IntakeFieldRow, MailAccount, MailAccountView, UurRegistratie } from "@/lib/db/schema";
 
 /** Effectieve bedrijfsgegevens: DB-instellingen over de code-defaults heen. */
 export type Bedrijf = {
@@ -188,6 +188,22 @@ export async function getInvoice(id: number): Promise<InvoiceWithTotals | null> 
 export async function getClientsForSelect(): Promise<Client[]> {
   await requireSession();
   return db.select().from(clients).orderBy(asc(clients.bedrijf));
+}
+
+/** Alle urenregistraties, nieuwste eerst. */
+export async function getUren(): Promise<UurRegistratie[]> {
+  await requireSession();
+  return db.select().from(uren).orderBy(desc(uren.datum), desc(uren.id));
+}
+
+/** Klanten waarop je uren kunt boeken: alles behalve gearchiveerd. */
+export async function getKlantenVoorUren(): Promise<{ id: number; bedrijf: string; status: string }[]> {
+  await requireSession();
+  return db
+    .select({ id: clients.id, bedrijf: clients.bedrijf, status: clients.status })
+    .from(clients)
+    .where(inArray(clients.status, ["actief", "onboarding", "onderhoud"]))
+    .orderBy(asc(clients.bedrijf));
 }
 
 /** Alle handmatig toegevoegde leads, nieuwste eerst. */

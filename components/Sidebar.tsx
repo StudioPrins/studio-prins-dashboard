@@ -9,6 +9,7 @@ const NAV = [
   { href: "/", label: "Klanten", icon: ClientsIcon, exact: true },
   { href: "/facturen", label: "Facturen & offertes", icon: InvoiceIcon },
   { href: "/leads", label: "Leads", icon: LeadsIcon },
+  { href: "/uren", label: "Gewerkte uren", icon: ClockIcon },
   { href: "/mail", label: "Mailassistent", icon: MailIcon },
   { href: "/instellingen", label: "Bedrijfsgegevens", icon: SettingsIcon },
 ];
@@ -86,6 +87,14 @@ function LeadsIcon(_: IconProps) {
     <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
       <path d="M3 6.5 12 12l9-5.5" />
       <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    </svg>
+  );
+}
+function ClockIcon(_: IconProps) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 1.8" />
     </svg>
   );
 }

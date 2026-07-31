@@ -230,6 +230,31 @@ export const mailStyleExamples = pgTable("mail_style_examples", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Gewerkte uren per teamlid, geboekt op een klant of op bedrijfswerkzaamheden.
+ * De duur staat in hele minuten, zodat optellen exact blijft.
+ *
+ * `soort` bepaalt het uurtarief (zie lib/uren.ts) en staat bewust náást
+ * `clientId`: wordt een klant verwijderd, dan blijft de registratie bestaan met
+ * `client_id = null` en telt hij nog steeds als klantwerk mee in de verdiensten.
+ */
+export const uren = pgTable(
+  "uren",
+  {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    soort: text("soort").notNull().default("klant"), // klant | bedrijf
+    medewerker: text("medewerker").notNull(), // sijmen | lucas | levi
+    datum: date("datum").notNull(),
+    minuten: integer("minuten").notNull(),
+    omschrijving: text("omschrijving"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("uren_datum").on(t.datum), index("uren_client").on(t.clientId)]
+);
+
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
@@ -242,6 +267,7 @@ export type MailAccount = typeof mailAccounts.$inferSelect;
 export type NewMailAccount = typeof mailAccounts.$inferInsert;
 export type MailMessage = typeof mailMessages.$inferSelect;
 export type MailStyleExample = typeof mailStyleExamples.$inferSelect;
+export type UurRegistratie = typeof uren.$inferSelect;
 
 /** Account zonder het versleutelde wachtwoord — veilig om naar de client te sturen. */
 export type MailAccountView = Omit<MailAccount, "passwordEnc">;
