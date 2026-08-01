@@ -64,18 +64,30 @@
   --radius-card: var(--radius);
 }
 
-* {
-  border-color: var(--line);
-}
+/*
+ * Alles hieronder staat bewust in een @layer. Tailwind v4 zet zijn eigen CSS in
+ * de lagen theme/base/components/utilities, en ongelaagde CSS wint van álle
+ * gelaagde CSS — ongeacht specificiteit of volgorde. Zonder deze lagen worden
+ * utility-klassen op onze componenten (`input h-8 py-1 w-[112px]`) stilzwijgend
+ * genegeerd.
+ */
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 /* Reusable component classes ---------------------------------------- */
+
+@layer components {
 
 .card {
   background: var(--surface);
@@ -155,3 +167,5 @@ select.input { cursor: pointer; }
 }
 
 .badge-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+
+}

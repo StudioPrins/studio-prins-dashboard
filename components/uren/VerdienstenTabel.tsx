@@ -43,8 +43,7 @@ export function VerdienstenTabel({ rows }: { rows: UurRegel[] }) {
           </p>
         </div>
         <select
-          className="input"
-          style={{ width: "auto" }}
+          className="input w-auto"
           value={maand}
           onChange={(e) => setMaand(e.target.value)}
           aria-label="Periode"

@@ -60,7 +60,7 @@ export function ChecklistTemplateEditor({ items }: { items: ChecklistTemplateIte
         {items.map((item, i) => (
           <li
             key={item.id}
-            className="group flex items-center gap-2 py-2 border-b border-line last:border-0"
+            className="flex items-center gap-2 py-2 border-b border-line last:border-0"
           >
             <span className="text-xs text-muted w-5 shrink-0 tabular-nums">{i + 1}.</span>
 
@@ -84,7 +84,7 @@ export function ChecklistTemplateEditor({ items }: { items: ChecklistTemplateIte
               </button>
             )}
 
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0">
               <IconButton label="Omhoog" disabled={i === 0} onClick={() => move(item.id, "up")}>
                 <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
               </IconButton>
