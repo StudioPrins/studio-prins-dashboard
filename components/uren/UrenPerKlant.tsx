@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteUur } from "@/lib/actions/uren";
-import { formatUren, medewerkerNaam, TEAM, type UrenGroep } from "@/lib/uren";
+import { formatUren, medewerkerNaam, TEAM, type UrenGroep, type UurRegel } from "@/lib/uren";
 import { formatDate } from "@/lib/format";
 
 export function UrenPerKlant({ groepen }: { groepen: UrenGroep[] }) {
@@ -201,8 +201,9 @@ function GroepKaart({
   );
 }
 
-function RegelInhoud({ regel }: { regel: { id: number; datum: string; medewerker: string; minuten: number; omschrijving: string | null } }) {
+function RegelInhoud({ regel }: { regel: UurRegel }) {
   const [pending, start] = useTransition();
+  const gefactureerd = regel.invoiceId != null;
   return (
     <div
       className="flex items-start justify-between gap-3 text-sm"
@@ -217,6 +218,19 @@ function RegelInhoud({ regel }: { regel: { id: number; datum: string; medewerker
           {formatUren(regel.minuten)}
         </span>
         {regel.omschrijving && <span className="text-ink-soft">{regel.omschrijving}</span>}
+        {gefactureerd && (
+          <span
+            className="badge"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--muted)",
+              border: "1px solid var(--line-strong)",
+            }}
+            title="Dit uur staat al op een factuur en komt niet nog eens mee."
+          >
+            Gefactureerd{regel.factuurNummer ? ` · ${regel.factuurNummer}` : ""}
+          </span>
+        )}
       </div>
       <button
         className="text-muted hover:text-danger px-1 shrink-0"

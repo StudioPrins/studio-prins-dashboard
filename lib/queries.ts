@@ -1,11 +1,12 @@
 import "server-only";
-import { and, desc, eq, inArray, asc, count } from "drizzle-orm";
+import { and, desc, eq, inArray, asc, count, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, intakeFields, mailAccounts, mailMessages, uren } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize";
 import { BEDRIJF } from "@/lib/bedrijf";
+import type { UurRegel } from "@/lib/uren";
 import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, IntakeFieldRow, MailAccount, MailAccountView, UurRegistratie } from "@/lib/db/schema";
 
 /** Effectieve bedrijfsgegevens: DB-instellingen over de code-defaults heen. */
@@ -190,10 +191,35 @@ export async function getClientsForSelect(): Promise<Client[]> {
   return db.select().from(clients).orderBy(asc(clients.bedrijf));
 }
 
-/** Alle urenregistraties, nieuwste eerst. */
-export async function getUren(): Promise<UurRegistratie[]> {
+/** Alle urenregistraties, nieuwste eerst, met het factuurnummer waarop ze staan. */
+export async function getUren(): Promise<UurRegel[]> {
   await requireSession();
-  return db.select().from(uren).orderBy(desc(uren.datum), desc(uren.id));
+  const rows = await db
+    .select({ uur: uren, factuurNummer: invoices.nummer })
+    .from(uren)
+    .leftJoin(invoices, eq(uren.invoiceId, invoices.id))
+    .orderBy(desc(uren.datum), desc(uren.id));
+  return rows.map((r) => ({ ...r.uur, factuurNummer: r.factuurNummer }));
+}
+
+/**
+ * Nog niet gefactureerde klanturen — de kandidaten voor een nieuwe factuur.
+ * Bedrijfswerkzaamheden en uren van verwijderde klanten vallen af: die horen
+ * niet op een klantfactuur. Oplopend op datum zodat de regels chronologisch staan.
+ */
+export async function getFactureerbareUren(): Promise<UurRegistratie[]> {
+  await requireSession();
+  return db
+    .select()
+    .from(uren)
+    .where(
+      and(
+        isNull(uren.invoiceId),
+        eq(uren.soort, "klant"),
+        isNotNull(uren.clientId)
+      )
+    )
+    .orderBy(asc(uren.datum), asc(uren.id));
 }
 
 /** Klanten waarop je uren kunt boeken: alles behalve gearchiveerd. */

@@ -252,9 +252,20 @@ export const uren = pgTable(
     datum: date("datum").notNull(),
     minuten: integer("minuten").notNull(),
     omschrijving: text("omschrijving"),
+    /**
+     * De factuur waarop dit uur verwerkt is; null = nog factureerbaar.
+     * `set null` geeft de uren vanzelf weer vrij als de factuur verdwijnt.
+     */
+    invoiceId: integer("invoice_id").references(() => invoices.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("uren_datum").on(t.datum), index("uren_client").on(t.clientId)]
+  (t) => [
+    index("uren_datum").on(t.datum),
+    index("uren_client").on(t.clientId),
+    index("uren_invoice").on(t.invoiceId),
+  ]
 );
 
 export type Client = typeof clients.$inferSelect;

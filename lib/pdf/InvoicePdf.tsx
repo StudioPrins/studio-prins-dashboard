@@ -8,7 +8,7 @@ import {
 } from "@react-pdf/renderer";
 import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 import { formatCents, formatDate } from "@/lib/format";
-import { lineTotalCents } from "@/lib/invoice-calc";
+import { formatAantal, lineTotalCents } from "@/lib/invoice-calc";
 import type { InvoiceWithTotals, Bedrijf } from "@/lib/queries";
 
 const INK = "#17161b";
@@ -159,7 +159,7 @@ export function InvoicePdf({
         {invoice.lines.map((l) => (
           <View style={s.row} key={l.id} wrap={false}>
             <Text style={s.cDesc}>{l.omschrijving}</Text>
-            <Text style={s.cQty}>{l.aantal}</Text>
+            <Text style={s.cQty}>{formatAantal(l.aantal)}</Text>
             <Text style={s.cPrice}>{formatCents(l.prijsCents)}</Text>
             <Text style={s.cTotal}>{formatCents(lineTotalCents(l.aantal, l.prijsCents))}</Text>
           </View>

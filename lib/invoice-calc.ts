@@ -6,6 +6,14 @@ export function lineTotalCents(aantal: string | number, prijsCents: number): num
   return Math.round((Number.isFinite(q) ? q : 0) * prijsCents);
 }
 
+const aantalFmt = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 2 });
+
+/** numeric-string uit de database → "2,5" / "1" (zonder overbodige decimalen). */
+export function formatAantal(aantal: string | number): string {
+  const n = typeof aantal === "number" ? aantal : parseFloat(aantal || "0");
+  return aantalFmt.format(Number.isFinite(n) ? n : 0);
+}
+
 export type InvoiceTotals = {
   subtotaalCents: number;
   btwCents: number;

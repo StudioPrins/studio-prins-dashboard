@@ -2,27 +2,71 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createInvoice, type FormState } from "@/lib/actions/invoices";
-import { euroToCents, formatCents, toISODate, addMonths } from "@/lib/format";
+import { euroToCents, formatCents, centsToInput, toISODate, addMonths } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
+import { formatUren, uurNaarFactuurregel } from "@/lib/uren";
 import { BEDRIJF } from "@/lib/bedrijf";
-import type { Client } from "@/lib/db/schema";
+import type { Client, UurRegistratie } from "@/lib/db/schema";
 
-type Line = { key: number; omschrijving: string; aantal: string; prijs: string };
+/** `uurId` is de herkomst: gevuld = uit de urenregistratie, null = handmatig. */
+type Line = {
+  key: number;
+  uurId: number | null;
+  omschrijving: string;
+  aantal: string;
+  prijs: string;
+};
 
 let counter = 0;
-const newLine = (): Line => ({ key: counter++, omschrijving: "", aantal: "1", prijs: "" });
+const newLine = (): Line => ({
+  key: counter++,
+  uurId: null,
+  omschrijving: "",
+  aantal: "1",
+  prijs: "",
+});
+
+/** Een geregistreerd uur als bewerkbare regel in het formulier. */
+function lineFromUur(uur: UurRegistratie): Line {
+  const r = uurNaarFactuurregel(uur);
+  return {
+    key: counter++,
+    uurId: r.uurId,
+    omschrijving: r.omschrijving,
+    aantal: r.aantal,
+    prijs: centsToInput(r.prijsCents),
+  };
+}
+
+/** Regels die de gebruiker zelf getypt heeft — die blijven bij een klantwissel staan. */
+const gevuldHandmatig = (l: Line) =>
+  l.uurId == null && (l.omschrijving.trim() !== "" || l.prijs.trim() !== "");
+
+/** Een formulier zonder regels is onwerkbaar — dan altijd één lege regel. */
+function metFallback(regels: Line[]): Line[] {
+  return regels.length > 0 ? regels : [newLine()];
+}
 
 export function InvoiceBuilder({
   clients,
+  factureerbareUren,
   defaultClientId,
 }: {
   clients: Client[];
+  factureerbareUren: UurRegistratie[];
   defaultClientId?: number;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     createInvoice,
     {}
   );
+
+  /** De nog niet gefactureerde uren van één klant, als factuurregels. */
+  function urenRegelsVoor(id: string): Line[] {
+    const cid = Number(id);
+    if (!Number.isInteger(cid) || cid <= 0) return [];
+    return factureerbareUren.filter((u) => u.clientId === cid).map(lineFromUur);
+  }
 
   const [type, setType] = useState<"factuur" | "offerte">("factuur");
   const [clientId, setClientId] = useState<string>(
@@ -37,7 +81,9 @@ export function InvoiceBuilder({
   });
   const [btw, setBtw] = useState(String(BEDRIJF.standaardBtw));
   const [datum, setDatum] = useState(toISODate());
-  const [lines, setLines] = useState<Line[]>([newLine()]);
+  const [lines, setLines] = useState<Line[]>(() =>
+    metFallback(urenRegelsVoor(defaultClientId ? String(defaultClientId) : ""))
+  );
 
   function pickClient(id: string) {
     setClientId(id);
@@ -50,6 +96,28 @@ export function InvoiceBuilder({
         adres: c.adres ?? "",
       });
     }
+    // Uren van de vorige klant eruit, die van de nieuwe erin; eigen typwerk blijft.
+    setLines((prev) =>
+      metFallback([
+        ...(type === "factuur" ? urenRegelsVoor(id) : []),
+        ...prev.filter(gevuldHandmatig),
+      ])
+    );
+  }
+
+  /**
+   * Een offerte is werk vooraf, geen afrekening van gewerkte uren: daar horen
+   * geen uur-regels op (ze worden ook niet afgeboekt). Terug naar factuur haalt
+   * ze weer op.
+   */
+  function pickType(t: "factuur" | "offerte") {
+    setType(t);
+    setLines((prev) =>
+      metFallback([
+        ...(t === "factuur" ? urenRegelsVoor(clientId) : []),
+        ...prev.filter(gevuldHandmatig),
+      ])
+    );
   }
 
   const totals = useMemo(() => {
@@ -60,6 +128,21 @@ export function InvoiceBuilder({
     const b = Math.round((sub * (parseInt(btw, 10) || 0)) / 100);
     return { sub, btw: b, total: sub + b };
   }, [lines, btw]);
+
+  /** Samenvatting van wat er uit de urenregistratie is opgehaald. */
+  const urenInfo = useMemo(() => {
+    const uurLines = lines.filter((l) => l.uurId != null);
+    if (uurLines.length === 0) return null;
+    const uren = uurLines.reduce(
+      (s, l) => s + (parseFloat(l.aantal.replace(",", ".")) || 0),
+      0
+    );
+    const cents = uurLines.reduce(
+      (s, l) => s + lineTotalCents(l.aantal || "0", euroToCents(l.prijs || "0")),
+      0
+    );
+    return { aantal: uurLines.length, uren, cents };
+  }, [lines]);
 
   const vervaldatum =
     type === "factuur" ? addMonths(BEDRIJF.betaaltermijnMaanden, new Date(datum)) : "";
@@ -79,7 +162,7 @@ export function InvoiceBuilder({
               <button
                 key={t}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => pickType(t)}
                 className="btn"
                 style={
                   type === t
@@ -150,6 +233,18 @@ export function InvoiceBuilder({
         {/* Regels */}
         <div className="card p-5">
           <h2 className="font-semibold tracking-tight mb-4">Regels</h2>
+
+          {urenInfo && (
+            <p
+              className="mb-4 text-sm rounded-[10px] px-3 py-2"
+              style={{ background: "var(--surface-2)", color: "var(--ink-soft)" }}
+            >
+              {urenInfo.aantal} registratie{urenInfo.aantal === 1 ? "" : "s"} uit de
+              urenregistratie · {formatUren(urenInfo.uren * 60)} ·{" "}
+              {formatCents(urenInfo.cents)} — pas gerust aan of gooi regels weg.
+            </p>
+          )}
+
           <div className="flex flex-col gap-2">
             <div className="hidden sm:grid grid-cols-[1fr_70px_110px_100px_32px] gap-2 text-xs text-muted px-1">
               <span>Omschrijving</span>
@@ -163,6 +258,9 @@ export function InvoiceBuilder({
                 key={line.key}
                 className="grid grid-cols-2 sm:grid-cols-[1fr_70px_110px_100px_32px] gap-2 items-center"
               >
+                {/* Houdt de herkomst bij; leeg bij handmatige regels zodat de
+                    parallelle arrays op de server uitgelijnd blijven. */}
+                <input type="hidden" name="uurId" value={line.uurId ?? ""} />
                 <input
                   name="omschrijving"
                   className="input col-span-2 sm:col-span-1"
@@ -277,7 +375,7 @@ export function InvoiceBuilder({
     </form>
   );
 
-  function updateLine(i: number, field: keyof Line, value: string) {
+  function updateLine(i: number, field: "omschrijving" | "aantal" | "prijs", value: string) {
     setLines((prev) =>
       prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l))
     );

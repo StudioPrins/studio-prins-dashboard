@@ -16,6 +16,11 @@ export function euroToCents(value: string | number): number {
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
+/** Centen → invoerwaarde voor een prijsveld: 6000 → "60,00" */
+export function centsToInput(cents: number): string {
+  return ((cents ?? 0) / 100).toFixed(2).replace(".", ",");
+}
+
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "numeric",
   month: "short",

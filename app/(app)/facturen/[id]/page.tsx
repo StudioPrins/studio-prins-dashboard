@@ -5,7 +5,7 @@ import { InvoiceActions } from "@/components/invoices/InvoiceActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { INVOICE_STATUSES } from "@/lib/status";
 import { formatCents, formatDate } from "@/lib/format";
-import { lineTotalCents } from "@/lib/invoice-calc";
+import { formatAantal, lineTotalCents } from "@/lib/invoice-calc";
 import { LOGO_DATA_URI } from "@/lib/pdf/logo";
 
 export default async function FactuurDetailPage({
@@ -94,7 +94,7 @@ export default async function FactuurDetailPage({
             {inv.lines.map((l) => (
               <tr key={l.id} className="border-b border-line">
                 <td className="py-2.5">{l.omschrijving}</td>
-                <td className="py-2.5 text-right tabular-nums">{l.aantal}</td>
+                <td className="py-2.5 text-right tabular-nums">{formatAantal(l.aantal)}</td>
                 <td className="py-2.5 text-right tabular-nums">{formatCents(l.prijsCents)}</td>
                 <td className="py-2.5 text-right tabular-nums">
                   {formatCents(lineTotalCents(l.aantal, l.prijsCents))}

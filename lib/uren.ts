@@ -1,4 +1,5 @@
 import type { UurRegistratie } from "@/lib/db/schema";
+import { formatDate } from "@/lib/format";
 
 /**
  * Team, tarieven en rekenwerk voor de urenregistratie.
@@ -78,8 +79,34 @@ export function parseUren(invoer: string): number | null {
   return null;
 }
 
-/** Eén regel zoals de UI hem toont: de registratie + de klantnaam erbij. */
-export type UurRegel = UurRegistratie;
+/** Eén regel zoals de UI hem toont: de registratie + het factuurnummer erbij. */
+export type UurRegel = UurRegistratie & { factuurNummer?: string | null };
+
+/** Een urenregistratie in de vorm die het factuurformulier gebruikt. */
+export type UurFactuurRegel = {
+  uurId: number;
+  /** "12 aug 2026 — Homepage ontwerp" */
+  omschrijving: string;
+  /** Uren met twee decimalen, past op numeric(10,2): "2.50" */
+  aantal: string;
+  prijsCents: number;
+};
+
+/**
+ * Zet een geregistreerd uur om in een factuurregel: de omschrijving wordt de
+ * titel (met de werkdatum ervoor), de gewerkte tijd het aantal, tegen het
+ * klanttarief per uur. Blijft daarna een gewone, aanpasbare regel.
+ */
+export function uurNaarFactuurregel(r: UurRegistratie): UurFactuurRegel {
+  const tekst = (r.omschrijving ?? "").trim();
+  const datum = formatDate(r.datum);
+  return {
+    uurId: r.id,
+    omschrijving: tekst ? `${datum} — ${tekst}` : datum,
+    aantal: (r.minuten / 60).toFixed(2),
+    prijsCents: TARIEF_KLANT_CENTS,
+  };
+}
 
 export type UrenGroep = {
   /** Stabiele sleutel voor React en het uitklappen: "klant:12", "bedrijf", "verwijderd". */

@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { invoices, invoiceLines, clients } from "@/lib/db/schema";
+import { invoices, invoiceLines, clients, uren } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { euroToCents, addMonths, toISODate } from "@/lib/format";
 import { nextInvoiceNumber } from "@/lib/invoice-number";
@@ -40,6 +40,8 @@ export async function createInvoice(
   const omschrijvingen = formData.getAll("omschrijving").map((v) => String(v).trim());
   const aantallen = formData.getAll("aantal").map((v) => String(v));
   const prijzen = formData.getAll("prijs").map((v) => String(v));
+  // Per regel de urenregistratie waar hij vandaan komt; leeg bij handmatige regels.
+  const uurIds = formData.getAll("uurId").map((v) => String(v));
 
   const lineValues = omschrijvingen
     .map((omschrijving, i) => ({
@@ -47,6 +49,7 @@ export async function createInvoice(
       aantal: normalizeQty(aantallen[i] ?? "1"),
       prijsCents: euroToCents(prijzen[i] ?? "0"),
       volgorde: i,
+      uurId: Number(uurIds[i]) || null,
     }))
     .filter((l) => l.omschrijving.length > 0);
 
@@ -80,9 +83,29 @@ export async function createInvoice(
     })
     .returning({ id: invoices.id });
 
-  await db
-    .insert(invoiceLines)
-    .values(lineValues.map((l) => ({ ...l, invoiceId: created.id })));
+  await db.insert(invoiceLines).values(
+    lineValues.map((l) => ({
+      invoiceId: created.id,
+      omschrijving: l.omschrijving,
+      aantal: l.aantal,
+      prijsCents: l.prijsCents,
+      volgorde: l.volgorde,
+    }))
+  );
+
+  // Verwerkte uren afboeken op deze factuur, zodat ze niet nog eens meekomen.
+  // `isNull` is de vangrail: een uur dat inmiddels elders gefactureerd is,
+  // wordt niet overgenomen. Offertes boeken niets af — die rekenen niets af.
+  const teKoppelen = lineValues
+    .map((l) => l.uurId)
+    .filter((n): n is number => n != null);
+  if (type === "factuur" && teKoppelen.length > 0) {
+    await db
+      .update(uren)
+      .set({ invoiceId: created.id })
+      .where(and(inArray(uren.id, teKoppelen), isNull(uren.invoiceId)));
+    revalidatePath("/uren");
+  }
 
   revalidatePath("/facturen");
   if (clientId) revalidatePath(`/klanten/${clientId}`);
@@ -100,6 +123,8 @@ export async function deleteInvoice(id: number) {
   await requireSession();
   await db.delete(invoices).where(eq(invoices.id, id));
   revalidatePath("/facturen");
+  // De FK zet uren.invoice_id op null: die uren zijn weer factureerbaar.
+  revalidatePath("/uren");
   redirect("/facturen");
 }
 

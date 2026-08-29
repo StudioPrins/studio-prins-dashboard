@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getClientsForSelect } from "@/lib/queries";
+import { getClientsForSelect, getFactureerbareUren } from "@/lib/queries";
 import { InvoiceBuilder } from "@/components/invoices/InvoiceBuilder";
 
 export default async function NieuweFactuurPage({
@@ -8,7 +8,10 @@ export default async function NieuweFactuurPage({
   searchParams: Promise<{ klant?: string }>;
 }) {
   const { klant } = await searchParams;
-  const clients = await getClientsForSelect();
+  const [clients, factureerbareUren] = await Promise.all([
+    getClientsForSelect(),
+    getFactureerbareUren(),
+  ]);
   const defaultClientId = klant ? Number(klant) : undefined;
 
   return (
@@ -22,7 +25,11 @@ export default async function NieuweFactuurPage({
       >
         Nieuwe factuur / offerte
       </h1>
-      <InvoiceBuilder clients={clients} defaultClientId={defaultClientId} />
+      <InvoiceBuilder
+        clients={clients}
+        factureerbareUren={factureerbareUren}
+        defaultClientId={defaultClientId}
+      />
     </div>
   );
 }
