@@ -20,7 +20,7 @@ export function DemoBanner() {
         uren, facturen en mails hieronder zijn verzonnen.
       </span>
       <span className="opacity-70">
-        Aanpassen mag — elke nacht om 04:00 wordt alles teruggezet.
+        Aanpassen mag: twee keer per dag wordt alles teruggezet.
       </span>
       <a
         href={REPO}

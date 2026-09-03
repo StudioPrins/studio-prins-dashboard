@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import {
@@ -51,7 +52,14 @@ export async function getSession(): Promise<SessionPayload | null> {
   // In de demo is iedereen ingelogd. Dit is bewust het enige punt waar dat
   // geregeld wordt: requireSession() staat al bovenaan elke query en elke
   // server action, dus die blijven verder ongewijzigd werken.
-  if (DEMO) return { ...DEMO_SESSION };
+  //
+  // connection() is hier geen formaliteit. In productie maakt het lezen van de
+  // cookie elke pagina request-gebonden; zonder die aanroep zou Next de demo bij
+  // de build prerenderen en zouden bezoekers hun eigen wijzigingen niet zien.
+  if (DEMO) {
+    await connection();
+    return { ...DEMO_SESSION };
+  }
 
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;

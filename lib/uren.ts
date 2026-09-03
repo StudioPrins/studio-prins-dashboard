@@ -16,11 +16,15 @@ const ECHT_TEAM: Medewerker[] = [
   { key: "levi", naam: "Levi", emails: ["levi@studioprins.nl"] },
 ];
 
-/** Verzonnen team voor de publieke demo; echte namen horen daar niet in. */
+/**
+ * Team voor de publieke demo. De demo laat het echte dashboard van Studio Prins
+ * zien met verzonnen klanten; mijn eigen naam mag daarin staan, die van collega's
+ * niet — vandaar twee verzonnen teamleden naast Sijmen.
+ */
 const DEMO_TEAM: Medewerker[] = [
-  { key: "sanne", naam: "Sanne", emails: ["sanne@voorbeeldstudio.nl"] },
-  { key: "tim", naam: "Tim", emails: ["tim@voorbeeldstudio.nl"] },
-  { key: "joris", naam: "Joris", emails: ["joris@voorbeeldstudio.nl"] },
+  { key: "sijmen", naam: "Sijmen", emails: ["sijmen@studioprins-demo.nl"] },
+  { key: "sanne", naam: "Sanne", emails: ["sanne@studioprins-demo.nl"] },
+  { key: "tim", naam: "Tim", emails: ["tim@studioprins-demo.nl"] },
 ];
 
 /** Wie er uren kan boeken. `emails` dient alleen om de keuze voor te vullen. */

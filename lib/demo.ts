@@ -18,7 +18,7 @@ export const DEMO = process.env.NEXT_PUBLIC_DEMO === "1";
  * Het adres komt overeen met het eerste demo-teamlid in lib/uren.ts, zodat de
  * persoonskeuze in het urenformulier net als in productie voorgevuld wordt.
  */
-export const DEMO_SESSION = { email: "sanne@voorbeeldstudio.nl" } as const;
+export const DEMO_SESSION = { email: "sijmen@studioprins-demo.nl" } as const;
 
 /** Nette melding bij een actie die in de demo bewust niets doet. */
 export function demoMelding(wat: string): string {
