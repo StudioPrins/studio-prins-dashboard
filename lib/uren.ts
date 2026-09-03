@@ -1,5 +1,6 @@
 import type { UurRegistratie } from "@/lib/db/schema";
 import { formatDate } from "@/lib/format";
+import { DEMO } from "@/lib/demo";
 
 /**
  * Team, tarieven en rekenwerk voor de urenregistratie.
@@ -9,12 +10,21 @@ import { formatDate } from "@/lib/format";
 
 export type Medewerker = { key: string; naam: string; emails: string[] };
 
-/** Wie er uren kan boeken. `emails` dient alleen om de keuze voor te vullen. */
-export const TEAM: Medewerker[] = [
+const ECHT_TEAM: Medewerker[] = [
   { key: "sijmen", naam: "Sijmen", emails: ["sijmen@studioprins.nl", "info@studioprins.nl"] },
   { key: "lucas", naam: "Lucas", emails: ["lucas@studioprins.nl"] },
   { key: "levi", naam: "Levi", emails: ["levi@studioprins.nl"] },
 ];
+
+/** Verzonnen team voor de publieke demo; echte namen horen daar niet in. */
+const DEMO_TEAM: Medewerker[] = [
+  { key: "sanne", naam: "Sanne", emails: ["sanne@voorbeeldstudio.nl"] },
+  { key: "tim", naam: "Tim", emails: ["tim@voorbeeldstudio.nl"] },
+  { key: "joris", naam: "Joris", emails: ["joris@voorbeeldstudio.nl"] },
+];
+
+/** Wie er uren kan boeken. `emails` dient alleen om de keuze voor te vullen. */
+export const TEAM: Medewerker[] = DEMO ? DEMO_TEAM : ECHT_TEAM;
 
 export const TEAM_KEYS = TEAM.map((m) => m.key);
 
@@ -30,9 +40,12 @@ export function medewerkerVoorEmail(email: string | null | undefined): string {
   return TEAM.find((m) => m.emails.includes(adres))?.key ?? "";
 }
 
-/** Uurtarieven in centen. */
-export const TARIEF_KLANT_CENTS = 6000;
-export const TARIEF_BEDRIJF_CENTS = 4000;
+/**
+ * Uurtarieven in centen. In de demo staan er ronde fantasiebedragen zodat de
+ * echte tarieven van Studio Prins niet publiek in een screenshot belanden.
+ */
+export const TARIEF_KLANT_CENTS = DEMO ? 7500 : 6000;
+export const TARIEF_BEDRIJF_CENTS = DEMO ? 5000 : 4000;
 
 export function tariefCents(soort: string): number {
   return soort === "bedrijf" ? TARIEF_BEDRIJF_CENTS : TARIEF_KLANT_CENTS;

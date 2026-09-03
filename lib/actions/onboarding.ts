@@ -8,9 +8,10 @@ import { clients } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { getCompanySettings, getIntakeFields } from "@/lib/queries";
 import { generateOnboardingMail } from "@/lib/welcome-mail";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendEmail, isEmailConfigured, emailConfigError } from "@/lib/email";
 import { createClientFolder, isDriveConfigured } from "@/lib/google-drive";
 import { publicBaseUrl } from "@/lib/site";
+import { DEMO, demoMelding } from "@/lib/demo";
 
 export type OnboardingState = { error?: string; ok?: boolean };
 
@@ -25,15 +26,15 @@ function str(v: FormDataEntryValue | null): string | null {
  */
 export async function sendOnboarding(clientId: number): Promise<OnboardingState> {
   await requireSession();
+  if (DEMO) {
+    return { error: demoMelding("dit mailt de klant en maakt een Google Drive-map aan.") };
+  }
 
   const [client] = await db.select().from(clients).where(eq(clients.id, clientId));
   if (!client) return { error: "Klant niet gevonden." };
   if (!client.email) return { error: "Deze klant heeft geen e-mailadres. Vul dat eerst in." };
   if (!isEmailConfigured()) {
-    return {
-      error:
-        "E-mailverzending is nog niet ingesteld. Zet RESEND_API_KEY en RESEND_FROM in de omgeving.",
-    };
+    return { error: `E-mailverzending is nog niet ingesteld: ${emailConfigError()}` };
   }
 
   // 1. Token vastleggen (blijft stabiel bij opnieuw versturen).

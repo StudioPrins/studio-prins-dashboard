@@ -9,6 +9,7 @@ import { runMailSync, type MailSyncResult } from "@/lib/mail/sync";
 import { markSeen, markSeenBulk, moveToTrash, appendToSent } from "@/lib/mail/imap";
 import { sendReply } from "@/lib/mail/smtp";
 import { generateDraft } from "@/lib/ai/mail-ai";
+import { DEMO, demoMelding } from "@/lib/demo";
 
 export type SendState = { error?: string; ok?: boolean; warning?: string };
 
@@ -16,6 +17,13 @@ export type SendState = { error?: string; ok?: boolean; warning?: string };
 
 export async function syncNowAction(): Promise<MailSyncResult> {
   await requireSession();
+  if (DEMO) {
+    return {
+      perAccount: [],
+      gecategoriseerd: 0,
+      melding: demoMelding("mail ophalen vraagt een echte IMAP-verbinding."),
+    };
+  }
   const result = await runMailSync();
   revalidatePath("/mail");
   return result;
@@ -29,6 +37,14 @@ export async function generateDraftAction(messageId: number): Promise<DraftState
   await requireSession();
   const [msg] = await db.select().from(mailMessages).where(eq(mailMessages.id, messageId));
   if (!msg) return { error: "Mail niet gevonden." };
+
+  // In de demo staat het concept al klaar in de database: dezelfde prompt en
+  // hetzelfde model, alleen vooraf gedraaid. Zo blijft de knop doen wat hij
+  // hoort te doen zonder dat een publieke demo API-tegoed opmaakt.
+  if (DEMO) {
+    if (msg.aiDraft) return { ok: true, draft: msg.aiDraft };
+    return { error: demoMelding("voor deze mail staat geen voorbeeldconcept klaar.") };
+  }
   const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, msg.accountId));
   if (!account) return { error: "Account niet gevonden." };
 
@@ -69,6 +85,8 @@ export async function sendReplyAction(
   formData: FormData
 ): Promise<SendState> {
   await requireSession();
+  if (DEMO) return { error: demoMelding("dit zou een echte e-mail versturen.") };
+
   const body = typeof formData.get("body") === "string" ? (formData.get("body") as string).trim() : "";
   if (!body) return { error: "Het antwoord is leeg." };
 

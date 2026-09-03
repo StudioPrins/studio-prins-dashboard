@@ -26,6 +26,8 @@ export interface AccountSyncResult {
 export interface MailSyncResult {
   perAccount: AccountSyncResult[];
   gecategoriseerd: number;
+  /** Vervangt de cijfermatige samenvatting in de UI als hij gezet is. */
+  melding?: string;
 }
 
 /** Haalt nieuwe mail op voor één account en bewaart die. */

@@ -8,6 +8,7 @@ import {
   verifySessionToken,
   type SessionPayload,
 } from "./session";
+import { DEMO, DEMO_SESSION } from "./demo";
 
 /** Toegestane e-mailadressen (komma-gescheiden in AUTH_EMAILS, fallback AUTH_EMAIL). */
 function allowedEmails(): string[] {
@@ -47,6 +48,11 @@ export async function logout(): Promise<void> {
 
 /** Huidige sessie of null. */
 export async function getSession(): Promise<SessionPayload | null> {
+  // In de demo is iedereen ingelogd. Dit is bewust het enige punt waar dat
+  // geregeld wordt: requireSession() staat al bovenaan elke query en elke
+  // server action, dus die blijven verder ongewijzigd werken.
+  if (DEMO) return { ...DEMO_SESSION };
+
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return verifySessionToken(token);

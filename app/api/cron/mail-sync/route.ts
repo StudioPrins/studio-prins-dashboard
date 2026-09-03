@@ -1,4 +1,5 @@
 import { runMailSync } from "@/lib/mail/sync";
+import { DEMO } from "@/lib/demo";
 
 // IMAP/SMTP zijn Node-libs; deze route mag niet op de edge draaien.
 export const runtime = "nodejs";
@@ -14,6 +15,9 @@ export const dynamic = "force-dynamic";
  * 05:00 en 14:00 UTC = 07:00 en 16:00 hier in de zomer, een uur eerder in de winter.
  */
 export async function GET(request: Request) {
+  // De demo-deploy draait dezelfde code maar heeft geen mailkoppeling.
+  if (DEMO) return Response.json({ ok: true, overgeslagen: "demo" });
+
   const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {

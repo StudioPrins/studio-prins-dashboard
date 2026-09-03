@@ -13,8 +13,16 @@ import {
 } from "@/lib/mail/imap";
 import { verifySmtp } from "@/lib/mail/smtp";
 import { distillStyleProfile } from "@/lib/ai/mail-ai";
+import { DEMO, demoMelding } from "@/lib/demo";
 
 export type FormState = { error?: string; ok?: boolean };
+
+/**
+ * Accountbeheer raakt altijd de buitenwereld: opslaan versleutelt het wachtwoord
+ * met MAIL_SECRET, testen en importeren openen een IMAP-verbinding. De demo
+ * heeft die sleutels niet, dus vangen we het hier af met een nette melding in
+ * plaats van een kale env-fout.
+ */
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";
@@ -62,6 +70,7 @@ export async function createMailAccount(
   formData: FormData
 ): Promise<FormState> {
   await requireSession();
+  if (DEMO) return { error: demoMelding("accounts opslaan vraagt een sleutel om het wachtwoord mee te versleutelen.") };
 
   const naam = str(formData.get("naam"));
   const email = str(formData.get("email")).toLowerCase();
@@ -121,6 +130,7 @@ export async function updateMailAccount(
   formData: FormData
 ): Promise<FormState> {
   await requireSession();
+  if (DEMO) return { error: demoMelding("accounts wijzigen vraagt een sleutel om het wachtwoord mee te versleutelen.") };
 
   const naam = str(formData.get("naam"));
   const email = str(formData.get("email")).toLowerCase();
@@ -178,6 +188,7 @@ export type TestResult = ConnectionTestResult & { smtpOk?: boolean; smtpError?: 
  */
 export async function testMailAccountAction(id: number): Promise<TestResult> {
   await requireSession();
+  if (DEMO) return { ok: false, error: demoMelding("de verbindingstest belt een echte mailserver.") };
   const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, id));
   if (!account) return { ok: false, error: "Account niet gevonden." };
 
@@ -221,6 +232,7 @@ export type ImportResult = { ok: boolean; error?: string; count?: number };
  */
 export async function importSentMails(id: number): Promise<ImportResult> {
   await requireSession();
+  if (DEMO) return { ok: false, error: demoMelding("stijl importeren leest je Verzonden-map uit via IMAP.") };
   const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, id));
   if (!account) return { ok: false, error: "Account niet gevonden." };
   if (!account.sentFolder) {

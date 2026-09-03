@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { DemoBanner } from "@/components/DemoBanner";
 
 export default async function AppLayout({
   children,
@@ -18,6 +19,7 @@ export default async function AppLayout({
         </div>
       </div>
       <div className="min-w-0">
+        <DemoBanner />
         <MobileNav />
         <main className="min-w-0">{children}</main>
       </div>

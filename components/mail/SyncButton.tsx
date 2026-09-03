@@ -12,6 +12,10 @@ export function SyncButton() {
       setMsg(null);
       try {
         const res = await syncNowAction();
+        if (res.melding) {
+          setMsg(res.melding);
+          return;
+        }
         const nieuw = res.perAccount.reduce((a, b) => a + b.nieuw, 0);
         const gelezenElders = res.perAccount.reduce((a, b) => a + b.gelezenElders, 0);
         const fouten = res.perAccount.filter((a) => a.fout).length;

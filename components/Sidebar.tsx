@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { logoutAction } from "@/lib/actions/auth";
+import { DEMO } from "@/lib/demo";
 
 const NAV = [
   { href: "/", label: "Klanten", icon: ClientsIcon, exact: true },
@@ -47,6 +48,7 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto p-3">
+        {DEMO ? null : (
         <form action={logoutAction}>
           <button
             type="submit"
@@ -56,6 +58,7 @@ export function Sidebar() {
             Uitloggen
           </button>
         </form>
+        )}
       </div>
     </aside>
   );

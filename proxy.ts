@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
+import { DEMO } from "@/lib/demo";
 
 /**
  * Proxy (voorheen "middleware", hernoemd in Next.js 16).
@@ -9,6 +10,17 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Demo: geen inlog. Alles is open en /login bestaat niet meer als bestemming.
+  if (DEMO) {
+    if (pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
 
