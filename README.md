@@ -1,5 +1,7 @@
 # Studio Prins — Dashboard
 
+[![CI](https://github.com/StudioPrins/studio-prins-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/StudioPrins/studio-prins-dashboard/actions/workflows/ci.yml)
+
 Het interne dashboard waarmee ik mijn webdesignbureau draai. Klanten en hun
 onboarding, geregistreerde uren, facturen en offertes met PDF, en een
 mailassistent die mijn inbox sorteert en conceptantwoorden schrijft in mijn eigen
@@ -8,11 +10,18 @@ stijl.
 Dit is geen oefenproject. Er gaan echte facturen uit, echte klanten vullen het
 intakeformulier in, en twee keer per dag haalt een cron mijn mailbox op.
 
-**[→ Demo bekijken](https://VUL-DEMO-URL-IN)** — geen inlog nodig, alle data is
-verzonnen en wordt twee keer per dag teruggezet.
+**[→ Demo bekijken](https://studio-prins-dashboard-demo.vercel.app)** — geen
+inlog nodig, alle data is verzonnen en wordt twee keer per dag teruggezet.
 
-<!-- TODO: screenshots toevoegen zodra de demo draait:
-     1. het klantenoverzicht  2. uren → factuurregels  3. de mailassistent -->
+![Het klantenoverzicht: per klant een screenshot van de website, de voortgang op de onboarding-checklist en het openstaande bedrag.](docs/screenshots/klanten.png)
+
+*Openstaande uren van een klant verschijnen automatisch als factuurregels — nog steeds gewoon aan te passen.*
+
+![De factuurbouwer met drie regels die uit de urenregistratie zijn geladen.](docs/screenshots/uren-naar-factuur.png)
+
+*De mailassistent sorteert de inbox in vijf categorieën en schrijft op verzoek een conceptantwoord in mijn eigen schrijfstijl.*
+
+![Een binnengekomen klantmail met daaronder het gegenereerde conceptantwoord.](docs/screenshots/mailassistent.png)
 
 ---
 
@@ -82,8 +91,6 @@ harde fout — mislukt de kopie in Verzonden ná een geslaagde verzending, dan g
 de status tóch op "beantwoord", anders verstuurt een retry de mail twee keer.
 
 ## Hoe ik dit gebouwd heb
-
-> Deze sectie is mijn leerproces; pas hem gerust aan naar je eigen woorden.
 
 Ik studeer econometrie en ben geen opgeleide software-engineer. Ik bouw al langer
 websites, en dit dashboard is ontstaan uit ergernis: klantgegevens in een
@@ -155,9 +162,10 @@ anders is:
   sleutels kán er geen mail verstuurd worden en geen IMAP-verbinding opgezet —
   ook niet als ik ergens een controle vergeet. De zes acties die de buitenwereld
   raken tonen een uitleg in plaats van een foutmelding.
-- **Verzonnen data.** Acht klanten, 62 uurregistraties, acht documenten en een
-  mailbox van 25 berichten. De conceptantwoorden zijn vooraf gegenereerd met
-  dezelfde prompt, zodat een publieke pagina geen API-tegoed kan opmaken.
+- **Verzonnen data.** Acht klanten, vijf leads, 62 uurregistraties, acht
+  documenten en een mailbox van 25 berichten. De conceptantwoorden zijn vooraf
+  gegenereerd met dezelfde prompt, zodat een publieke pagina geen API-tegoed kan
+  opmaken.
 
 Zelf opzetten: aparte Neon-database, tweede Vercel-project op deze repo, en
 alleen `DATABASE_URL`, `SESSION_SECRET`, `CRON_SECRET` en `NEXT_PUBLIC_DEMO=1`
