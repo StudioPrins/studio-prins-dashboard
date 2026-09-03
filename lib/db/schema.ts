@@ -248,7 +248,7 @@ export const uren = pgTable(
       onDelete: "set null",
     }),
     soort: text("soort").notNull().default("klant"), // klant | bedrijf
-    medewerker: text("medewerker").notNull(), // sijmen | lucas | levi
+    medewerker: text("medewerker").notNull(), // sleutel uit NEXT_PUBLIC_TEAM, zie lib/uren.ts
     datum: date("datum").notNull(),
     minuten: integer("minuten").notNull(),
     omschrijving: text("omschrijving"),

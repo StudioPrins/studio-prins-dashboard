@@ -16,5 +16,13 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
+    // Team en tarieven komen uit configuratie (zie lib/uren.ts). De tests krijgen
+    // hier hun eigen verzonnen opgave, zodat ze niet afhangen van wat er toevallig
+    // in de .env.local van de ontwikkelaar staat.
+    env: {
+      NEXT_PUBLIC_TEAM: "sijmen:Sijmen:sijmen@voorbeeld.nl;sam:Sam:sam@voorbeeld.nl",
+      NEXT_PUBLIC_TARIEF_KLANT: "80",
+      NEXT_PUBLIC_TARIEF_BEDRIJF: "50",
+    },
   },
 });

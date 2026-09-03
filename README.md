@@ -196,4 +196,6 @@ als omgevingsvariabelen. Daarna `npm run db:push` en `npm run db:demo-seed`.
 | `ANTHROPIC_API_KEY` | Mailassistent (categoriseren + concepten) | Mailassistent faalt |
 | `MAIL_SECRET` | Versleuteling IMAP/SMTP-wachtwoorden — moet **gelijk blijven** | Opgeslagen mailwachtwoorden onleesbaar |
 | `CRON_SECRET` | Beveiliging van de cron-routes | Cron-sync wordt geweigerd |
+| `NEXT_PUBLIC_TEAM` | Wie er uren kan boeken (`sleutel:Naam:adres;…`) | Eén naamloze gebruiker |
+| `NEXT_PUBLIC_TARIEF_KLANT`, `NEXT_PUBLIC_TARIEF_BEDRIJF` | Uurtarieven in euro's | Tarief 0 |
 | `NEXT_PUBLIC_DEMO` | Alleen in de demo-omgeving op `1` | Normale, beveiligde modus |

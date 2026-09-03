@@ -3,10 +3,14 @@ import type { UurRegistratie } from "@/lib/db/schema";
 import {
   TARIEF_BEDRIJF_CENTS,
   TARIEF_KLANT_CENTS,
+  TEAM,
   berekenVerdiensten,
   groepeerUren,
   maandenMetUren,
+  parseTeam,
   parseUren,
+  teamUitConfig,
+  tariefUitEuro,
   uurNaarFactuurregel,
   verdiensteCents,
 } from "@/lib/uren";
@@ -26,6 +30,93 @@ function uur(over: Partial<UurRegistratie> = {}): UurRegistratie {
     ...over,
   };
 }
+
+describe("parseTeam", () => {
+  it("leest sleutel, naam en adressen", () => {
+    expect(parseTeam("sijmen:Sijmen:sijmen@x.nl,info@x.nl;tess:Tess:tess@x.nl")).toEqual([
+      { key: "sijmen", naam: "Sijmen", emails: ["sijmen@x.nl", "info@x.nl"] },
+      { key: "tess", naam: "Tess", emails: ["tess@x.nl"] },
+    ]);
+  });
+
+  it("staat een teamlid zonder adressen toe", () => {
+    expect(parseTeam("tess:Tess")).toEqual([{ key: "tess", naam: "Tess", emails: [] }]);
+    expect(parseTeam("tess:Tess:")).toEqual([{ key: "tess", naam: "Tess", emails: [] }]);
+  });
+
+  it("negeert spaties rond de onderdelen", () => {
+    expect(parseTeam("  tess : Tess : Tess@X.nl , info@x.nl ")).toEqual([
+      { key: "tess", naam: "Tess", emails: ["tess@x.nl", "info@x.nl"] },
+    ]);
+  });
+
+  it("normaliseert sleutel en adressen naar kleine letters, maar laat de naam staan", () => {
+    const [m] = parseTeam("TESS:Tess de Wit:TESS@X.NL");
+    expect(m.key).toBe("tess");
+    expect(m.naam).toBe("Tess de Wit");
+    expect(m.emails).toEqual(["tess@x.nl"]);
+  });
+
+  it("slaat onleesbare onderdelen over in plaats van alles te laten mislukken", () => {
+    // Eén typefout hoort niet de hele urenpagina onbruikbaar te maken.
+    expect(parseTeam("tess:Tess:tess@x.nl;;rommel;:GeenSleutel:x@x.nl;bram:Bram")).toEqual([
+      { key: "tess", naam: "Tess", emails: ["tess@x.nl"] },
+      { key: "bram", naam: "Bram", emails: [] },
+    ]);
+  });
+
+  it("geeft een lege lijst bij ontbrekende of lege configuratie", () => {
+    expect(parseTeam(undefined)).toEqual([]);
+    expect(parseTeam(null)).toEqual([]);
+    expect(parseTeam("")).toEqual([]);
+  });
+});
+
+describe("teamUitConfig", () => {
+  it("gebruikt de opgave als die bruikbaar is", () => {
+    expect(teamUitConfig("tess:Tess").map((m) => m.key)).toEqual(["tess"]);
+  });
+
+  it("valt terug op één persoon als er niets bruikbaars in staat", () => {
+    // Een lege array is truthy in JavaScript. Zonder expliciete lengtecheck zou
+    // een ontbrekende NEXT_PUBLIC_TEAM een leeg team opleveren en kon niemand
+    // nog uren boeken — precies die fout maakte ik hier eerst.
+    for (const leeg of [undefined, null, "", "rommel", ";;;"]) {
+      expect(teamUitConfig(leeg).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("TEAM", () => {
+  it("komt uit de configuratie", () => {
+    expect(TEAM.map((m) => m.key)).toEqual(["sijmen", "sam"]);
+  });
+
+  it("bevat altijd minstens één persoon", () => {
+    // Een lege array is truthy in JavaScript; zonder expliciete lengtecheck zou
+    // een ontbrekende NEXT_PUBLIC_TEAM een leeg team opleveren en zou er niemand
+    // meer uren kunnen boeken.
+    expect(TEAM.length).toBeGreaterThan(0);
+    expect(TEAM.every((m) => m.key && m.naam)).toBe(true);
+  });
+});
+
+describe("tariefUitEuro", () => {
+  it("rekent euro's om naar centen", () => {
+    expect(tariefUitEuro("60")).toBe(6000);
+    expect(tariefUitEuro("62.50")).toBe(6250);
+    expect(tariefUitEuro("62,50")).toBe(6250);
+  });
+
+  it("geeft nul bij ontbrekende of onzinnige invoer", () => {
+    // Nul valt op de verdienstenpagina meteen op; een verzonnen bedrag zou stil
+    // op een factuur belanden.
+    expect(tariefUitEuro(undefined)).toBe(0);
+    expect(tariefUitEuro("")).toBe(0);
+    expect(tariefUitEuro("gratis")).toBe(0);
+    expect(tariefUitEuro("-10")).toBe(0);
+  });
+});
 
 describe("parseUren", () => {
   it("leest hele en decimale uren, met komma of punt", () => {
@@ -75,9 +166,12 @@ describe("verdiensteCents", () => {
     expect(verdiensteCents(30, "klant")).toBe(Math.round(TARIEF_KLANT_CENTS / 2));
   });
 
-  it("rekent bedrijfswerk tegen het lagere tarief", () => {
+  it("rekent bedrijfswerk tegen het bedrijfstarief", () => {
     expect(verdiensteCents(60, "bedrijf")).toBe(TARIEF_BEDRIJF_CENTS);
-    expect(TARIEF_BEDRIJF_CENTS).toBeLessThan(TARIEF_KLANT_CENTS);
+    // Niet meer of het bedrijfstarief lager ís — dat is een keuze in de
+    // configuratie, geen belofte van deze code. Wel dat de twee tarieven uit
+    // elkaar worden gehouden.
+    expect(TARIEF_BEDRIJF_CENTS).not.toBe(TARIEF_KLANT_CENTS);
   });
 
   it("behandelt een onbekend soort als klantwerk", () => {
@@ -194,6 +288,19 @@ describe("berekenVerdiensten", () => {
     const rijenUit = berekenVerdiensten([]);
     expect(rijenUit.length).toBeGreaterThan(0);
     expect(rijenUit.every((r) => r.totaalMinuten === 0 && r.centen === 0)).toBe(true);
+  });
+
+  it("laat uren van iemand buiten het team niet verdwijnen", () => {
+    // Een oud teamlid, of een verkeerd ingestelde NEXT_PUBLIC_TEAM: de uren
+    // moeten zichtbaar blijven, want geld dat je niet ziet is erger dan een rij
+    // met een onbekende naam erin.
+    const rij = berekenVerdiensten([
+      uur({ id: 9, medewerker: "onbekend-persoon", soort: "klant", minuten: 120 }),
+    ]).find((r) => r.medewerker === "onbekend-persoon");
+
+    expect(rij).toBeDefined();
+    expect(rij!.klantMinuten).toBe(120);
+    expect(rij!.centen).toBe(2 * TARIEF_KLANT_CENTS);
   });
 });
 

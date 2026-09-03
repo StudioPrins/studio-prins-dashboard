@@ -10,25 +10,70 @@ import { DEMO } from "@/lib/demo";
 
 export type Medewerker = { key: string; naam: string; emails: string[] };
 
-const ECHT_TEAM: Medewerker[] = [
-  { key: "sijmen", naam: "Sijmen", emails: ["sijmen@studioprins.nl", "info@studioprins.nl"] },
-  { key: "lucas", naam: "Lucas", emails: ["lucas@studioprins.nl"] },
-  { key: "levi", naam: "Levi", emails: ["levi@studioprins.nl"] },
-];
-
 /**
- * Team voor de publieke demo. De demo laat het echte dashboard van Studio Prins
- * zien met verzonnen klanten; mijn eigen naam mag daarin staan, die van collega's
- * niet — vandaar twee verzonnen teamleden naast Sijmen.
+ * Leest de teamsamenstelling uit NEXT_PUBLIC_TEAM.
+ *
+ * Vorm: `sleutel:Naam:adres,adres;sleutel:Naam:adres`
+ * De adressen zijn optioneel en dienen alleen om de persoonskeuze voor te vullen
+ * op basis van het ingelogde e-mailadres.
+ *
+ * LET OP: de sleutel is wat er in `uren.medewerker` staat. Wijzig je die, dan
+ * raken bestaande registraties los van hun persoon. Namen en adressen mag je wel
+ * aanpassen.
+ *
+ * Onleesbare onderdelen worden overgeslagen in plaats van de hele opgave te laten
+ * mislukken: één typefout hoort niet de urenpagina onbruikbaar te maken.
  */
+export function parseTeam(raw: string | undefined | null): Medewerker[] {
+  if (!raw) return [];
+
+  const leden: Medewerker[] = [];
+  for (const stuk of raw.split(";")) {
+    const [key, naam, adressen] = stuk.split(":").map((s) => s.trim());
+    if (!key || !naam) continue;
+    leden.push({
+      key: key.toLowerCase(),
+      naam,
+      emails: (adressen ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean),
+    });
+  }
+  return leden;
+}
+
+/** Verzonnen team voor de publieke demo. */
 const DEMO_TEAM: Medewerker[] = [
   { key: "sijmen", naam: "Sijmen", emails: ["sijmen@studioprins-demo.nl"] },
   { key: "sanne", naam: "Sanne", emails: ["sanne@studioprins-demo.nl"] },
   { key: "tim", naam: "Tim", emails: ["tim@studioprins-demo.nl"] },
 ];
 
-/** Wie er uren kan boeken. `emails` dient alleen om de keuze voor te vullen. */
-export const TEAM: Medewerker[] = DEMO ? DEMO_TEAM : ECHT_TEAM;
+/**
+ * Zichtbaar onaf, zodat een vergeten NEXT_PUBLIC_TEAM meteen opvalt in plaats van
+ * stilletjes de verkeerde mensen te tonen.
+ */
+const GEEN_TEAM: Medewerker[] = [{ key: "ik", naam: "Ik", emails: [] }];
+
+/**
+ * Wie er uren kan boeken.
+ *
+ * Komt uit configuratie en niet uit deze broncode: wie er bij Studio Prins werkt
+ * en wat we rekenen zijn bedrijfsgegevens, en deze repo is openbaar.
+ */
+/**
+ * Team uit een ruwe opgave, met terugval als er niets bruikbaars in staat.
+ * Apart van TEAM zodat de terugval te testen is zonder de omgeving te vervalsen.
+ */
+export function teamUitConfig(raw: string | undefined | null): Medewerker[] {
+  const leden = parseTeam(raw);
+  return leden.length > 0 ? leden : GEEN_TEAM;
+}
+
+export const TEAM: Medewerker[] = DEMO
+  ? DEMO_TEAM
+  : teamUitConfig(process.env.NEXT_PUBLIC_TEAM);
 
 export const TEAM_KEYS = TEAM.map((m) => m.key);
 
@@ -44,12 +89,19 @@ export function medewerkerVoorEmail(email: string | null | undefined): string {
   return TEAM.find((m) => m.emails.includes(adres))?.key ?? "";
 }
 
+/** Bedrag in hele euro's (of met decimalen) → centen. Onleesbaar = 0. */
+export function tariefUitEuro(raw: string | undefined | null): number {
+  const n = Number((raw ?? "").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : 0;
+}
+
 /**
- * Uurtarieven in centen. In de demo staan er ronde fantasiebedragen zodat de
- * echte tarieven van Studio Prins niet publiek in een screenshot belanden.
+ * Uurtarieven in centen, uit NEXT_PUBLIC_TARIEF_KLANT en _BEDRIJF (in euro's).
+ * Staan ze niet ingesteld, dan is het tarief 0 — dat valt op de verdienstenpagina
+ * meteen op, en dat is beter dan een verzonnen bedrag op een factuur zetten.
  */
-export const TARIEF_KLANT_CENTS = DEMO ? 7500 : 6000;
-export const TARIEF_BEDRIJF_CENTS = DEMO ? 5000 : 4000;
+export const TARIEF_KLANT_CENTS = DEMO ? 7500 : tariefUitEuro(process.env.NEXT_PUBLIC_TARIEF_KLANT);
+export const TARIEF_BEDRIJF_CENTS = DEMO ? 5000 : tariefUitEuro(process.env.NEXT_PUBLIC_TARIEF_BEDRIJF);
 
 export function tariefCents(soort: string): number {
   return soort === "bedrijf" ? TARIEF_BEDRIJF_CENTS : TARIEF_KLANT_CENTS;
@@ -228,7 +280,17 @@ export function formatMaand(maand: string): string {
 export function berekenVerdiensten(rows: UurRegel[], maand?: string): VerdiensteRij[] {
   const relevant = maand ? rows.filter((r) => String(r.datum).startsWith(maand)) : rows;
 
-  return TEAM.map(({ key, naam }) => {
+  // Sleutels die wél in de data zitten maar niet in TEAM staan, krijgen alsnog
+  // een rij. Zonder dat zouden hun uren stil uit het overzicht verdwijnen bij een
+  // oud teamlid of een verkeerd ingestelde NEXT_PUBLIC_TEAM — en geld dat je niet
+  // ziet is erger dan een rij met een onbekende naam erin. Zelfde afweging als de
+  // groep "Verwijderde klanten" in groepeerUren().
+  const onbekend = [...new Set(relevant.map((r) => r.medewerker))]
+    .filter((k) => !TEAM.some((m) => m.key === k))
+    .sort()
+    .map((key) => ({ key, naam: medewerkerNaam(key), emails: [] }));
+
+  return [...TEAM, ...onbekend].map(({ key, naam }) => {
     const eigen = relevant.filter((r) => r.medewerker === key);
     const klantMinuten = eigen
       .filter((r) => r.soort !== "bedrijf")
