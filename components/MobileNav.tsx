@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { logoutAction } from "@/lib/actions/auth";
+import { DEMO } from "@/lib/demo";
 
 const NAV = [
   { href: "/", label: "Klanten", exact: true },
@@ -20,9 +21,11 @@ export function MobileNav() {
     <header className="lg:hidden sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
       <div className="flex items-center justify-between px-4 h-14">
         <LogoMark size={30} />
-        <form action={logoutAction}>
-          <button className="text-sm font-medium text-muted">Uitloggen</button>
-        </form>
+        {DEMO ? null : (
+          <form action={logoutAction}>
+            <button className="text-sm font-medium text-muted">Uitloggen</button>
+          </form>
+        )}
       </div>
       <nav className="flex gap-1 px-3 pb-2 overflow-x-auto">
         {NAV.map(({ href, label, exact }) => {
