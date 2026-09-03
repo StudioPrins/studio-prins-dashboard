@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { LeadFields } from "./LeadFields";
 import { createLead, updateLead, type FormState } from "@/lib/actions/leads";
@@ -23,9 +23,14 @@ export function LeadFormModal({
   const action = mode === "edit" && lead ? updateLead.bind(null, lead.id) : createLead;
   const [state, formAction, pending] = useActionState(action, initial);
 
-  useEffect(() => {
+  // Sluit de modal zodra de actie geslaagd is. Bewust tijdens de render in
+  // plaats van in een effect: useActionState geeft bij elke submit een nieuw
+  // object terug, dus dit vuurt precies één keer per resultaat.
+  const [vorigResultaat, setVorigResultaat] = useState(state);
+  if (state !== vorigResultaat) {
+    setVorigResultaat(state);
     if (state.ok) setOpen(false);
-  }, [state.ok]);
+  }
 
   return (
     <>

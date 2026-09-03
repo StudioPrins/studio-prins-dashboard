@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { ClientFields, type ClientFieldsVariant } from "./ClientFields";
 import { createClient, updateClient, type FormState } from "@/lib/actions/clients";
@@ -32,13 +32,18 @@ export function ClientFormModal({
       : createClient;
   const [state, formAction, pending] = useActionState(action, initial);
 
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
-
   function close() {
     setOpen(false);
     if (mode === "create") setKeuze(null);
+  }
+
+  // Sluit de modal zodra de actie geslaagd is. Bewust tijdens de render in
+  // plaats van in een effect: useActionState geeft bij elke submit een nieuw
+  // object terug, dus dit vuurt precies één keer per resultaat.
+  const [vorigResultaat, setVorigResultaat] = useState(state);
+  if (state !== vorigResultaat) {
+    setVorigResultaat(state);
+    if (state.ok) close();
   }
 
   const titel =

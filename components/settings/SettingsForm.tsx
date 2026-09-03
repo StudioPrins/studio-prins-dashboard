@@ -10,13 +10,21 @@ export function SettingsForm({ bedrijf }: { bedrijf: Bedrijf }) {
   const [state, action, pending] = useActionState(updateCompanySettings, initial);
   const [saved, setSaved] = useState(false);
 
+  // Toon "opgeslagen" zodra er een geslaagd resultaat binnenkomt. Tijdens de
+  // render in plaats van in een effect; useActionState levert per submit een
+  // nieuw object, dus dit vuurt precies één keer.
+  const [vorigResultaat, setVorigResultaat] = useState(state);
+  if (state !== vorigResultaat) {
+    setVorigResultaat(state);
+    setSaved(state.ok === true);
+  }
+
+  // Het weer laten verdwijnen is wél effectwerk: een timer is een extern systeem.
   useEffect(() => {
-    if (state.ok) {
-      setSaved(true);
-      const t = setTimeout(() => setSaved(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [state.ok]);
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 2500);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   return (
     <form action={action} className="flex flex-col gap-8">
