@@ -23,13 +23,16 @@ export function OnboardingPanel({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   function send() {
     setError(null);
+    setWarning(null);
     startTransition(async () => {
       const res = await sendOnboarding(clientId);
       if (res.error) setError(res.error);
+      if (res.warning) setWarning(res.warning);
     });
   }
 
@@ -103,6 +106,16 @@ export function OnboardingPanel({
           style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
         >
           {error}
+        </p>
+      )}
+
+      {/* De mail is verstuurd, maar er ging iets mis wat de onboarding niet blokkeert. */}
+      {warning && (
+        <p
+          className="text-sm rounded-[10px] px-3 py-2 mb-4"
+          style={{ background: "var(--amber-soft)", color: "var(--amber)" }}
+        >
+          Mail verstuurd, maar: {warning}
         </p>
       )}
 

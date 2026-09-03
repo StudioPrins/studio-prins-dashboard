@@ -13,7 +13,7 @@ import { createClientFolder, isDriveConfigured } from "@/lib/google-drive";
 import { publicBaseUrl } from "@/lib/site";
 import { DEMO, demoMelding } from "@/lib/demo";
 
-export type OnboardingState = { error?: string; ok?: boolean };
+export type OnboardingState = { error?: string; warning?: string; ok?: boolean };
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = typeof v === "string" ? v.trim() : "";
@@ -41,19 +41,22 @@ export async function sendOnboarding(clientId: number): Promise<OnboardingState>
   const token = client.onboardingToken ?? randomUUID();
 
   // 2. Drive-map aanmaken als die er nog niet is en Drive geconfigureerd is.
+  //    Lukt dat niet, dan gaat de mail tóch de deur uit — zonder Drive-link, net
+  //    als wanneer Drive helemaal niet gekoppeld is. De klant wacht anders op
+  //    zijn intakeformulier vanwege een probleem dat er los van staat; een
+  //    volgende poging maakt de map alsnog aan.
   let driveFolderId = client.driveFolderId;
   let driveFolderUrl = client.driveFolderUrl;
+  let warning: string | undefined;
   if (!driveFolderId && isDriveConfigured()) {
     try {
       const folder = await createClientFolder(client.bedrijf);
       driveFolderId = folder.id;
       driveFolderUrl = folder.url;
     } catch (e) {
-      return {
-        error: `Google Drive-map aanmaken mislukt: ${
-          e instanceof Error ? e.message : "onbekende fout"
-        }`,
-      };
+      warning = `Google Drive-map aanmaken mislukt: ${
+        e instanceof Error ? e.message : "onbekende fout"
+      }`;
     }
   }
 
@@ -87,7 +90,7 @@ export async function sendOnboarding(clientId: number): Promise<OnboardingState>
     .where(eq(clients.id, clientId));
 
   revalidatePath(`/klanten/${clientId}`);
-  return { ok: true };
+  return { ok: true, warning };
 }
 
 /**
