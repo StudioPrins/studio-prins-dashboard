@@ -24,6 +24,12 @@ export type DemoKlant = {
   notities?: string;
   /** Hoeveel stappen van de checklist zijn afgevinkt. */
   afgevinkt: number;
+  /**
+   * Hoeveel dagen geleden deze klant is aangemaakt. Het klantenoverzicht
+   * sorteert op aanmaakdatum, dus zonder dit veld krijgen alle klanten in de
+   * seed vrijwel hetzelfde tijdstip en bepaalt de invoegvolgorde het beeld.
+   */
+  klantSinds: number;
   /** Formulier verstuurd maar nog niet ingevuld. Bij een ingevulde `intake` is dit impliciet. */
   onboardingVerstuurd?: boolean;
   intake?: Record<string, string>;
@@ -32,6 +38,7 @@ export type DemoKlant = {
 export const KLANTEN: DemoKlant[] = [
   {
     bedrijf: "Bakkerij de Korenbloem",
+    klantSinds: 150,
     contactpersoon: "Marijke de Vries",
     email: "marijke@korenbloem-demo.nl",
     telefoon: "010 123 45 67",
@@ -60,6 +67,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Fysiotherapie Maasoever",
+    klantSinds: 120,
     contactpersoon: "Anouk Verlinden",
     email: "anouk@maasoever-demo.nl",
     telefoon: "010 234 56 78",
@@ -88,6 +96,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Installatiebedrijf Warmte & Co",
+    klantSinds: 62,
     contactpersoon: "Ronald Kuipers",
     email: "ronald@warmte-en-co-demo.nl",
     telefoon: "010 345 67 89",
@@ -105,6 +114,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Restaurant De Zoutkeet",
+    klantSinds: 95,
     contactpersoon: "Youssef El Amrani",
     email: "youssef@zoutkeet-demo.nl",
     telefoon: "010 456 78 90",
@@ -122,6 +132,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Atelier Nienke Bos",
+    klantSinds: 48,
     contactpersoon: "Nienke Bos",
     email: "nienke@atelierbos-demo.nl",
     telefoon: "06 12 34 56 78",
@@ -139,6 +150,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Hoveniersbedrijf Groenrijk",
+    klantSinds: 21,
     contactpersoon: "Tom Bakker",
     email: "tom@groenrijk-demo.nl",
     telefoon: "010 567 89 01",
@@ -150,6 +162,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Rijschool Vooruit",
+    klantSinds: 13,
     contactpersoon: "Deniz Yildirim",
     email: "deniz@rijschoolvooruit-demo.nl",
     telefoon: "06 23 45 67 89",
@@ -162,6 +175,7 @@ export const KLANTEN: DemoKlant[] = [
   },
   {
     bedrijf: "Boekhoudkantoor Steenbergen",
+    klantSinds: 430,
     contactpersoon: "Peter Steenbergen",
     email: "peter@steenbergen-demo.nl",
     websiteUrl: "drizzle.team",

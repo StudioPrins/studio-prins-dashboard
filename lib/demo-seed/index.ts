@@ -203,6 +203,7 @@ export async function seedDemo(): Promise<{ klanten: number; uren: number; mails
         iban: k.iban ?? null,
         notities: k.notities ?? null,
         intake: k.intake ?? null,
+        createdAt: dagenGeleden(k.klantSinds),
         // Een ingevulde intake betekent dat het formulier ook verstuurd is.
         onboardingToken:
           k.intake || k.onboardingVerstuurd ? `demo-${slug(k.bedrijf)}` : null,
