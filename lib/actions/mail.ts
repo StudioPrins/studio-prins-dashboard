@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, mailStyleExamples } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
 import { runMailSync, type MailSyncResult } from "@/lib/mail/sync";
-import { markSeen, moveToTrash, appendToSent } from "@/lib/mail/imap";
+import { markSeen, markSeenBulk, moveToTrash, appendToSent } from "@/lib/mail/imap";
 import { sendReply } from "@/lib/mail/smtp";
 import { generateDraft } from "@/lib/ai/mail-ai";
 
@@ -184,6 +184,29 @@ export async function ignoreMessageAction(messageId: number): Promise<void> {
 export async function ignoreMessagesBulkAction(ids: number[]): Promise<void> {
   await requireSession();
   if (ids.length === 0) return;
+
+  const rows = await db
+    .select({ accountId: mailMessages.accountId, uid: mailMessages.uid })
+    .from(mailMessages)
+    .where(inArray(mailMessages.id, ids));
+
+  // Per account groeperen zodat we één IMAP-verbinding per account gebruiken.
+  const byAccount = new Map<number, number[]>();
+  for (const r of rows) {
+    if (!r.uid) continue;
+    byAccount.set(r.accountId, [...(byAccount.get(r.accountId) ?? []), r.uid]);
+  }
+  for (const [accountId, uids] of byAccount) {
+    const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, accountId));
+    if (account) {
+      try {
+        await markSeenBulk(account, uids);
+      } catch {
+        // negeer IMAP-fout; lokaal markeren gebeurt hieronder
+      }
+    }
+  }
+
   await db.update(mailMessages).set({ status: "genegeerd" }).where(inArray(mailMessages.id, ids));
   revalidatePath("/mail");
 }
@@ -248,13 +271,45 @@ export async function deleteCategoryAction(filter: MailCategoryFilter): Promise<
   return rows.length;
 }
 
-/** Markeert álle mails van een categorie als genegeerd (DB-only, net als de bulk-negeer). */
+/**
+ * Markeert álle mails van een categorie als genegeerd — ook mails buiten de
+ * getoonde 300. De mails blijven in de INBOX staan, maar worden op de server als
+ * gelezen gemarkeerd zodat Outlook en de telefoon meelopen.
+ */
 export async function ignoreCategoryAction(filter: MailCategoryFilter): Promise<number> {
   await requireSession();
   if (!filter.categorie) return 0;
 
   const conds = categoryConds(filter);
-  const rows = await db.update(mailMessages).set({ status: "genegeerd" }).where(and(...conds)).returning({ id: mailMessages.id });
+  const rows = await db
+    .select({ accountId: mailMessages.accountId, uid: mailMessages.uid })
+    .from(mailMessages)
+    .where(and(...conds));
+
+  if (rows.length === 0) return 0;
+
+  // Per account groeperen; UID's in batches als gelezen markeren.
+  const byAccount = new Map<number, number[]>();
+  for (const r of rows) {
+    if (!r.uid) continue;
+    const arr = byAccount.get(r.accountId);
+    if (arr) arr.push(r.uid);
+    else byAccount.set(r.accountId, [r.uid]);
+  }
+
+  for (const [accountId, uids] of byAccount) {
+    const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, accountId));
+    if (!account) continue;
+    for (let i = 0; i < uids.length; i += 500) {
+      try {
+        await markSeenBulk(account, uids.slice(i, i + 500));
+      } catch {
+        // IMAP-fout niet-fataal; lokaal markeren gebeurt hieronder
+      }
+    }
+  }
+
+  await db.update(mailMessages).set({ status: "genegeerd" }).where(and(...conds));
   revalidatePath("/mail");
   return rows.length;
 }

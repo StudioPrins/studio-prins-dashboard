@@ -237,21 +237,35 @@ export async function fetchUnreadInboxMessages(
 
 /* --- Mutaties (terug-syncen naar de mailbox) ------------------------------ */
 
-/** Markeert een INBOX-bericht als gelezen (\Seen), zodat Outlook meeloopt. */
-export async function markSeen(account: MailAccount, uid: number): Promise<void> {
+/**
+ * Markeert INBOX-berichten als gelezen (\Seen) in één verbinding, zodat Outlook
+ * en de mail-app op de telefoon meelopen met wat er in het dashboard is afgehandeld.
+ */
+export async function markSeenBulk(
+  account: MailAccount,
+  uids: number[]
+): Promise<void> {
+  if (uids.length === 0) return;
+  const range = uids.join(",");
   await withImap(imapCredsFromAccount(account), async (client) => {
     const lock = await client.getMailboxLock("INBOX");
     try {
-      await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+      await client.messageFlagsAdd(range, ["\\Seen"], { uid: true });
     } finally {
       lock.release();
     }
   });
 }
 
+/** Markeert één INBOX-bericht als gelezen (\Seen). */
+export async function markSeen(account: MailAccount, uid: number): Promise<void> {
+  await markSeenBulk(account, [uid]);
+}
+
 /**
- * Verplaatst een of meer INBOX-berichten naar de Prullenbak. Valt terug op
- * \Deleted + expunge als de doelmap ontbreekt of de move faalt.
+ * Verplaatst een of meer INBOX-berichten naar de Prullenbak en markeert ze
+ * daarbij als gelezen. Valt terug op \Deleted + expunge als de doelmap ontbreekt
+ * of de move faalt.
  */
 export async function moveToTrash(
   account: MailAccount,
@@ -262,6 +276,15 @@ export async function moveToTrash(
   await withImap(imapCredsFromAccount(account), async (client) => {
     const lock = await client.getMailboxLock("INBOX");
     try {
+      // Eerst \Seen, want ná de verplaatsing bestaat de UID hier niet meer.
+      // Mislukt dit, dan gaat het weggooien gewoon door: de mail kwijtraken
+      // weegt zwaarder dan de leesstatus.
+      try {
+        await client.messageFlagsAdd(range, ["\\Seen"], { uid: true });
+      } catch {
+        // niet kritiek
+      }
+
       if (account.trashFolder) {
         try {
           await client.messageMove(range, account.trashFolder, { uid: true });
