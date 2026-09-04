@@ -33,7 +33,7 @@ inlog nodig, alle data is verzonnen en wordt twee keer per dag teruggezet.
 | **Onboarding** | Eén klik stuurt de klant een mail met een intakeformulier op een geheim token. Wat hij invult landt direct op de juiste kolommen — de facturatiegegevens hoef ik nooit over te typen. |
 | **Gewerkte uren** | Registratie per teamlid, op een klant of op bedrijfswerk, met verdiensten per maand. De invoer accepteert `2`, `2,5`, `1:30` en `90m`. |
 | **Facturen & offertes** | Eén documentmodel met twee jaarreeksen, PDF-generatie, en een offerte die je met één klik omzet naar een factuur. Openstaande uren van een klant verschijnen automatisch als factuurregels. |
-| **Mailassistent** | Haalt ongelezen mail op via IMAP, verdeelt die over vijf categorieën, en schrijft op verzoek een conceptantwoord in mijn schrijfstijl. Antwoorden gaan via SMTP de deur uit en belanden netjes in Verzonden. |
+| **Mailassistent** | Haalt ongelezen mail op via IMAP, verdeelt die over vijf categorieën, en schrijft op verzoek een conceptantwoord in mijn schrijfstijl. Antwoorden gaan via SMTP de deur uit en belanden netjes in Verzonden. Het concept blijft naast de verstuurde tekst bewaard, zodat elke aanpassing die ik maak meegaat als correctie in het volgende concept. |
 | **Leads** | Handmatige lijst met statuspipeline en een demo-URL per lead. |
 
 ## Architectuur
@@ -60,7 +60,7 @@ ook in elke query en elke action apart — `requireSession()` staat overal
 bovenaan, met twee gedocumenteerde uitzonderingen voor het publieke
 intakeformulier.
 
-## Drie beslissingen die ik zou uitleggen in een code review
+## Vier beslissingen die ik zou uitleggen in een code review
 
 **1. Een gratis filter vóór de betaalde AI.**
 Elke binnenkomende mail door een taalmodel halen is onnodig duur. Er draait
@@ -89,6 +89,25 @@ server als gelezen gemarkeerd. Bij het versturen van een antwoord is het
 onderscheid tussen fataal en niet-fataal expliciet: mislukt SMTP, dan is dat een
 harde fout — mislukt de kopie in Verzonden ná een geslaagde verzending, dan gaat
 de status tóch op "beantwoord", anders verstuurt een retry de mail twee keer.
+
+**4. Het concept bewaren náást wat ik verstuurde.**
+Lang deelden het Claude-concept en de verzonden tekst één kolom: bij verzenden
+werd het concept overschreven. Daarmee verdween precies het enige dat laat zien
+wat mijn beoordeling aan het concept veranderde. Nu staan ze naast elkaar
+(`ai_draft` en `sent_body`), en gaan de laatste zes correcties waarin ik écht
+iets aanpaste letterlijk mee in de volgende prompt.
+
+Ruwe paren dus, geen gedistilleerd "leerpunten"-profiel. Een samenvatting van
+200 woorden is precies waar een correctie als "hij schrapt altijd de
+beleefdheidsopening" in verdwijnt; het paar zelf laat het zien. Ze staan in het
+gecachete deel van de prompt en niet bij de losse mail, want ze gelden voor het
+hele account: het blok verandert alleen ná een verzending waarin ik iets
+aanpaste, en dan mist de cache één keer. Bij een handvol mails per dag is dat de
+juiste ruil.
+
+Wat je ongewijzigd verstuurt telt trouwens net zo hard mee — dat is het cijfer
+op de Verstuurd-weergave, en de enige eerlijke maat voor of de assistent beter
+wordt.
 
 ## Hoe ik dit gebouwd heb
 
@@ -144,6 +163,7 @@ exact blijft.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run db:push` | Schema naar de database sturen |
+| `npm run db:mail-feedback-migrate` | Kolommen voor de leerlus toevoegen op een bestaande database |
 | `npm run db:seed` | Kleine voorbeelddataset |
 | `npm run db:demo-seed` | Volledige demo-dataset (**wist eerst alles**) |
 | `npm run db:studio` | Drizzle Studio |
@@ -163,9 +183,9 @@ anders is:
   ook niet als ik ergens een controle vergeet. De zes acties die de buitenwereld
   raken tonen een uitleg in plaats van een foutmelding.
 - **Verzonnen data.** Acht klanten, vijf leads, 62 uurregistraties, acht
-  documenten en een mailbox van 25 berichten. De conceptantwoorden zijn vooraf
-  gegenereerd met dezelfde prompt, zodat een publieke pagina geen API-tegoed kan
-  opmaken.
+  documenten en een mailbox van 25 berichten, plus zeven al beantwoorde mails
+  waarop de leerlus te zien is. De conceptantwoorden zijn vooraf gegenereerd met
+  dezelfde prompt, zodat een publieke pagina geen API-tegoed kan opmaken.
 
 Zelf opzetten: aparte Neon-database, tweede Vercel-project op deze repo, en
 alleen `DATABASE_URL`, `SESSION_SECRET`, `CRON_SECRET` en `NEXT_PUBLIC_DEMO=1`
@@ -178,6 +198,11 @@ als omgevingsvariabelen. Daarna `npm run db:push` en `npm run db:demo-seed`.
 3. Zet de overige variabelen in **Settings → Environment Variables** (zie de
    tabel hieronder).
 4. Na de eerste deploy: `npm run db:push` tegen de productie-`DATABASE_URL`.
+
+> **Bij een bestaande database:** draai `npm run db:mail-feedback-migrate` vóór
+> de deploy die de leerlus meeneemt. De mailweergave leest `sent_body`, dus
+> zonder die kolommen faalt `/mail`. Het script is idempotent en verplaatst
+> meteen de antwoorden van vóór de leerlus naar de juiste kolom.
 
 > `.env.local` geldt **alleen lokaal** en staat in `.gitignore`; online wordt dat
 > bestand nooit gelezen. Elke variabele moet dus apart in Vercel staan, en een

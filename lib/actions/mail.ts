@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, mailStyleExamples } from "@/lib/db/schema";
@@ -8,7 +8,8 @@ import { requireSession } from "@/lib/auth";
 import { runMailSync, type MailSyncResult } from "@/lib/mail/sync";
 import { markSeen, markSeenBulk, moveToTrash, appendToSent } from "@/lib/mail/imap";
 import { sendReply } from "@/lib/mail/smtp";
-import { generateDraft } from "@/lib/ai/mail-ai";
+import { generateDraft, type MailCorrection } from "@/lib/ai/mail-ai";
+import { isMeaningfulEdit } from "@/lib/mail/diff";
 import { DEMO, demoMelding } from "@/lib/demo";
 
 export type SendState = { error?: string; ok?: boolean; warning?: string };
@@ -33,6 +34,41 @@ export async function syncNowAction(): Promise<MailSyncResult> {
 
 export type DraftState = { error?: string; ok?: boolean; draft?: string };
 
+/** Hoeveel correctieparen mee mogen in de prompt. */
+const MAX_CORRECTIES = 6;
+/** Hoeveel recente antwoorden we bekijken om die paren te vinden. */
+const CORRECTIE_ZOEKDIEPTE = 20;
+
+/**
+ * De laatste antwoorden waarin het concept écht is aangepast. Verzendingen
+ * waarbij het concept ongewijzigd de deur uitging bevatten geen les, dus we
+ * kijken verder terug dan we nodig hebben en filteren die eruit — anders drukken
+ * juist de geslaagde concepten de correcties uit de lijst.
+ */
+async function recenteCorrecties(accountId: number): Promise<MailCorrection[]> {
+  const rows = await db
+    .select({ aiDraft: mailMessages.aiDraft, sentBody: mailMessages.sentBody })
+    .from(mailMessages)
+    .where(
+      and(
+        eq(mailMessages.accountId, accountId),
+        isNotNull(mailMessages.aiDraft),
+        isNotNull(mailMessages.sentBody)
+      )
+    )
+    .orderBy(desc(mailMessages.sentAt))
+    .limit(CORRECTIE_ZOEKDIEPTE);
+
+  const paren: MailCorrection[] = [];
+  for (const r of rows) {
+    if (!r.aiDraft || !r.sentBody) continue;
+    if (!isMeaningfulEdit(r.aiDraft, r.sentBody)) continue;
+    paren.push({ concept: r.aiDraft, verstuurd: r.sentBody });
+    if (paren.length >= MAX_CORRECTIES) break;
+  }
+  return paren;
+}
+
 export async function generateDraftAction(messageId: number): Promise<DraftState> {
   await requireSession();
   const [msg] = await db.select().from(mailMessages).where(eq(mailMessages.id, messageId));
@@ -54,6 +90,8 @@ export async function generateDraftAction(messageId: number): Promise<DraftState
     .where(eq(mailStyleExamples.accountId, account.id))
     .orderBy(asc(mailStyleExamples.id));
 
+  const corrections = await recenteCorrecties(account.id);
+
   try {
     const draft = await generateDraft(
       account,
@@ -64,7 +102,8 @@ export async function generateDraftAction(messageId: number): Promise<DraftState
         date: msg.date,
         bodyText: msg.bodyText,
       },
-      examples
+      examples,
+      corrections
     );
     await db
       .update(mailMessages)
@@ -127,9 +166,13 @@ export async function sendReplyAction(
     // niet kritiek
   }
 
+  // 3. Vastleggen wat er werkelijk uitging, náást het concept. `aiDraft` blijft
+  //    bewust ongemoeid: het verschil tussen die twee is het enige signaal dat
+  //    laat zien wat Sijmens beoordeling aan het concept veranderde, en dat is
+  //    precies waar de volgende concepten van leren (zie generateDraftAction).
   await db
     .update(mailMessages)
-    .set({ status: "beantwoord", aiDraft: body })
+    .set({ status: "beantwoord", sentBody: body, sentAt: new Date() })
     .where(eq(mailMessages.id, messageId));
   revalidatePath("/mail");
   return { ok: true, warning };

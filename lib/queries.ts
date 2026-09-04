@@ -5,6 +5,7 @@ import { clients, tasks, invoices, invoiceLines, leads, companySettings, checkli
 import { requireSession } from "@/lib/auth";
 import { invoiceTotals, type InvoiceTotals } from "@/lib/invoice-calc";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize";
+import { editRatio, isMeaningfulEdit } from "@/lib/mail/diff";
 import { BEDRIJF } from "@/lib/bedrijf";
 import type { UurRegel } from "@/lib/uren";
 import type { Client, Task, Invoice, InvoiceLine, Lead, ChecklistTemplateItem, IntakeFieldRow, MailAccount, MailAccountView, UurRegistratie } from "@/lib/db/schema";
@@ -334,10 +335,47 @@ export type MailRowView = {
   bodyText: string | null;
   bodyHtmlSafe: string | null;
   category: string | null;
+  /** Het Claude-concept; blijft na verzenden staan naast `sentBody`. */
   aiDraft: string | null;
   aiDraftGeneratedAt: Date | null;
+  /** Wat er daadwerkelijk verstuurd is. Verschil met `aiDraft` = het leersignaal. */
+  sentBody: string | null;
+  sentAt: Date | null;
   status: string;
 };
+
+/** Kolommen die de UI van een mailrij nodig heeft. */
+const mailRowColumns = {
+  id: mailMessages.id,
+  accountId: mailMessages.accountId,
+  accountNaam: mailAccounts.naam,
+  accountEmail: mailAccounts.email,
+  uid: mailMessages.uid,
+  fromAddress: mailMessages.fromAddress,
+  fromName: mailMessages.fromName,
+  toAddress: mailMessages.toAddress,
+  subject: mailMessages.subject,
+  date: mailMessages.date,
+  snippet: mailMessages.snippet,
+  bodyText: mailMessages.bodyText,
+  bodyHtml: mailMessages.bodyHtml,
+  category: mailMessages.category,
+  aiDraft: mailMessages.aiDraft,
+  aiDraftGeneratedAt: mailMessages.aiDraftGeneratedAt,
+  sentBody: mailMessages.sentBody,
+  sentAt: mailMessages.sentAt,
+  status: mailMessages.status,
+};
+
+/** HTML sanitizen vóór het de client bereikt. */
+function toMailRowViews(
+  rows: (Omit<MailRowView, "bodyHtmlSafe"> & { bodyHtml: string | null })[]
+): MailRowView[] {
+  return rows.map(({ bodyHtml, ...r }) => ({
+    ...r,
+    bodyHtmlSafe: bodyHtml ? sanitizeEmailHtml(bodyHtml) : null,
+  }));
+}
 
 /** Nieuwe (nog niet afgehandelde) mails, gefilterd op categorie/account. */
 export async function getMailInbox(filter?: {
@@ -351,35 +389,96 @@ export async function getMailInbox(filter?: {
   if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
 
   const rows = await db
-    .select({
-      id: mailMessages.id,
-      accountId: mailMessages.accountId,
-      accountNaam: mailAccounts.naam,
-      accountEmail: mailAccounts.email,
-      uid: mailMessages.uid,
-      fromAddress: mailMessages.fromAddress,
-      fromName: mailMessages.fromName,
-      toAddress: mailMessages.toAddress,
-      subject: mailMessages.subject,
-      date: mailMessages.date,
-      snippet: mailMessages.snippet,
-      bodyText: mailMessages.bodyText,
-      bodyHtml: mailMessages.bodyHtml,
-      category: mailMessages.category,
-      aiDraft: mailMessages.aiDraft,
-      aiDraftGeneratedAt: mailMessages.aiDraftGeneratedAt,
-      status: mailMessages.status,
-    })
+    .select(mailRowColumns)
     .from(mailMessages)
     .innerJoin(mailAccounts, eq(mailMessages.accountId, mailAccounts.id))
     .where(and(...conds))
     .orderBy(desc(mailMessages.date), desc(mailMessages.id))
     .limit(300);
 
-  return rows.map(({ bodyHtml, ...r }) => ({
-    ...r,
-    bodyHtmlSafe: bodyHtml ? sanitizeEmailHtml(bodyHtml) : null,
-  }));
+  return toMailRowViews(rows);
+}
+
+/**
+ * Beantwoorde mails, nieuwste eerst. Hier is te zien wat er met een concept
+ * gebeurde voordat het de deur uitging.
+ */
+export async function getVerstuurdeMails(filter?: {
+  accountId?: number;
+}): Promise<MailRowView[]> {
+  await requireSession();
+
+  const conds = [eq(mailMessages.status, "beantwoord")];
+  if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+
+  const rows = await db
+    .select(mailRowColumns)
+    .from(mailMessages)
+    .innerJoin(mailAccounts, eq(mailMessages.accountId, mailAccounts.id))
+    .where(and(...conds))
+    .orderBy(desc(mailMessages.sentAt), desc(mailMessages.id))
+    .limit(300);
+
+  return toMailRowViews(rows);
+}
+
+/** Aantal beantwoorde mails — genoeg voor het tabtelletje, zonder de teksten op te halen. */
+export async function getVerstuurdCount(filter?: { accountId?: number }): Promise<number> {
+  await requireSession();
+
+  const conds = [eq(mailMessages.status, "beantwoord")];
+  if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+
+  const [row] = await db.select({ n: count() }).from(mailMessages).where(and(...conds));
+  return row?.n ?? 0;
+}
+
+/**
+ * De cijfers van de leerlus: hoe vaak een concept ongewijzigd de deur uitging en
+ * hoeveel er gemiddeld aan werd aangepast. Dat is de enige eerlijke maat voor of
+ * de assistent beter wordt — mails van vóór de leerlus (zonder bewaard concept)
+ * tellen daarom niet mee.
+ *
+ * Haalt de volledige teksten op om te diffen, dus alleen aanroepen voor de
+ * Verstuurd-weergave zelf; het tabtelletje heeft genoeg aan `getVerstuurdCount`.
+ */
+export type LeerlusStats = {
+  verstuurd: number;
+  metConcept: number;
+  ongewijzigd: number;
+  /** Gemiddelde aanpassing over de mails mét concept, 0–1. */
+  gemiddeldeAanpassing: number;
+};
+
+export async function getLeerlusStats(filter?: {
+  accountId?: number;
+}): Promise<LeerlusStats> {
+  await requireSession();
+
+  const conds = [eq(mailMessages.status, "beantwoord")];
+  if (filter?.accountId != null) conds.push(eq(mailMessages.accountId, filter.accountId));
+
+  const rows = await db
+    .select({ aiDraft: mailMessages.aiDraft, sentBody: mailMessages.sentBody })
+    .from(mailMessages)
+    .where(and(...conds));
+
+  let metConcept = 0;
+  let ongewijzigd = 0;
+  let somAanpassing = 0;
+  for (const r of rows) {
+    if (!r.aiDraft || !r.sentBody) continue;
+    metConcept++;
+    if (isMeaningfulEdit(r.aiDraft, r.sentBody)) somAanpassing += editRatio(r.aiDraft, r.sentBody);
+    else ongewijzigd++;
+  }
+
+  return {
+    verstuurd: rows.length,
+    metConcept,
+    ongewijzigd,
+    gemiddeldeAanpassing: metConcept === 0 ? 0 : somAanpassing / metConcept,
+  };
 }
 
 /**

@@ -206,8 +206,16 @@ export const mailMessages = pgTable(
     bodyHtml: text("body_html"), // ruwe HTML; sanitizen bij render
     // belangrijk | beantwoorden | nieuwsbrief | notificatie | onbelangrijk (null = nog niet gecategoriseerd)
     category: text("category"),
+    /**
+     * Het laatst gegenereerde Claude-concept. Wordt bij verzenden bewust NIET
+     * overschreven: het verschil met `sentBody` is het leersignaal waarmee de
+     * assistent van elke aangepaste mail leert (zie lib/mail/diff.ts).
+     */
     aiDraft: text("ai_draft"),
     aiDraftGeneratedAt: timestamp("ai_draft_generated_at", { withTimezone: true }),
+    /** De tekst die daadwerkelijk verstuurd is — wat Sijmen ervan maakte. */
+    sentBody: text("sent_body"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     // nieuw | beantwoord | verwijderd | genegeerd
     status: text("status").notNull().default("nieuw"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -216,6 +224,7 @@ export const mailMessages = pgTable(
     uniqueIndex("mail_msg_account_mailbox_uid").on(t.accountId, t.mailbox, t.uid),
     index("mail_msg_message_id").on(t.messageId),
     index("mail_msg_status_category").on(t.status, t.category),
+    index("mail_msg_account_sent_at").on(t.accountId, t.sentAt),
   ]
 );
 

@@ -149,7 +149,8 @@ Belangrijk:
 - Antwoord in dezelfde taal als de ontvangen mail (meestal Nederlands).
 - Neem Sijmens schrijfstijl exact over: aanhef, afsluiting, toon en woordkeuze uit de meegegeven voorbeelden.
 - Beantwoord concreet de vraag/inhoud van de mail. Verzin geen feiten, prijzen of toezeggingen die je niet weet; houd het dan algemeen of stel een verduidelijkende wedervraag.
-- Wees beknopt en natuurlijk, zoals Sijmen zelf zou schrijven.`;
+- Wees beknopt en natuurlijk, zoals Sijmen zelf zou schrijven.
+- Krijg je correcties op eerdere concepten mee, pas die patronen dan meteen toe. Dat is Sijmens directe feedback op jouw werk en weegt zwaarder dan de algemene stijlbeschrijving.`;
 
 export interface DraftMessage {
   fromName: string | null;
@@ -159,9 +160,32 @@ export interface DraftMessage {
   bodyText: string | null;
 }
 
+/** Een concept dat Sijmen aanpaste voordat hij het verstuurde. */
+export interface MailCorrection {
+  concept: string;
+  verstuurd: string;
+}
+
+/** Per kant afkappen: het patroon van een correctie zit in de eerste alinea's. */
+const MAX_CORRECTION_CHARS = 1500;
+
+function correctionBlock(corrections: MailCorrection[]): string {
+  const shown = corrections
+    .map(
+      (c, i) =>
+        `Correctie ${i + 1}\n` +
+        `Jouw concept:\n${c.concept.slice(0, MAX_CORRECTION_CHARS)}\n\n` +
+        `Wat Sijmen ervan maakte en verstuurde:\n${c.verstuurd.slice(0, MAX_CORRECTION_CHARS)}`
+    )
+    .join("\n\n---\n\n");
+
+  return `\nCorrecties van Sijmen op jouw eerdere concepten. Eerst wat jij schreef, daarna wat hij er daadwerkelijk van maakte. Leer hieruit het patroon van zijn correcties — toon, lengte, formulering, wat hij standaard schrapt of juist toevoegt. Niet de inhoud: die hoorde bij die ene mail.\n\n${shown}`;
+}
+
 function styleBlock(
   account: MailAccount,
-  examples: { subject: string | null; bodyText: string }[]
+  examples: { subject: string | null; bodyText: string }[],
+  corrections: MailCorrection[]
 ): string {
   const parts: string[] = [];
   parts.push(`Afzender-identiteit: ${account.naam} <${account.email}>.`);
@@ -174,6 +198,11 @@ function styleBlock(
       .map((e, i) => `Voorbeeld ${i + 1}:\n${e.bodyText}`)
       .join("\n\n");
     parts.push(`\nEnkele eerder verzonden mails ter referentie:\n${shown}`);
+  }
+  // Als laatste, zodat het dichtst bij de opdracht staat: dit is de scherpste
+  // feedback die we hebben.
+  if (corrections.length > 0) {
+    parts.push(correctionBlock(corrections));
   }
   return parts.join("\n");
 }
@@ -199,20 +228,26 @@ function mailContext(message: DraftMessage): string {
 
 /**
  * Genereert een conceptantwoord in Sijmens stijl. De system-prompt is
- * opgebouwd als stabiele prefix (persona + stijl + voorbeelden) met een
- * cache-breakpoint, zodat opeenvolgende antwoorden op hetzelfde account de
+ * opgebouwd als stabiele prefix (persona + stijl + voorbeelden + correcties) met
+ * een cache-breakpoint, zodat opeenvolgende antwoorden op hetzelfde account de
  * prompt-cache benutten.
+ *
+ * De correcties zitten bewust ín die prefix en niet bij de losse mail: ze gelden
+ * voor het hele account. Het blok verandert daardoor alleen ná een verzending
+ * waarin Sijmen iets aanpaste — dan mist de cache één keer, en is het signaal
+ * meteen actueel. Bij een handvol mails per dag is dat de juiste ruil.
  */
 export async function generateDraft(
   account: MailAccount,
   message: DraftMessage,
-  examples: { subject: string | null; bodyText: string }[]
+  examples: { subject: string | null; bodyText: string }[],
+  corrections: MailCorrection[] = []
 ): Promise<string> {
   const system: Anthropic.TextBlockParam[] = [
     { type: "text", text: DRAFT_PERSONA },
     {
       type: "text",
-      text: styleBlock(account, examples),
+      text: styleBlock(account, examples, corrections),
       cache_control: { type: "ephemeral" },
     },
   ];

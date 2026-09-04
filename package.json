@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "db:mail-feedback-migrate": "tsx scripts/mail-feedback-migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:demo-seed": "tsx scripts/demo-seed.ts",
     "test": "vitest run",

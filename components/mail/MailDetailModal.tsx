@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { CategoryBadge } from "./CategoryBadge";
 import { DraftPanel } from "./DraftPanel";
+import { DiffView } from "./DiffView";
 import { deleteMessageAction, ignoreMessageAction } from "@/lib/actions/mail";
 import type { MailRowView } from "@/lib/queries";
 
@@ -21,6 +22,8 @@ export function MailDetailModal({
     message.category === "belangrijk" || message.category === "beantwoorden"
   );
   const [pending, start] = useTransition();
+
+  const beantwoord = message.status === "beantwoord";
 
   return (
     <Modal open={open} onClose={onClose} title={message.subject ?? "(geen onderwerp)"} width={760}>
@@ -70,13 +73,16 @@ export function MailDetailModal({
           </button>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <button
-            className="btn btn-secondary text-xs px-2.5 py-1.5"
-            disabled={pending}
-            onClick={() => start(async () => { await ignoreMessageAction(message.id); onClose(); })}
-          >
-            Negeren
-          </button>
+          {/* Negeren slaat nergens op bij een mail die al beantwoord is. */}
+          {!beantwoord && (
+            <button
+              className="btn btn-secondary text-xs px-2.5 py-1.5"
+              disabled={pending}
+              onClick={() => start(async () => { await ignoreMessageAction(message.id); onClose(); })}
+            >
+              Negeren
+            </button>
+          )}
           <button
             className="btn btn-danger text-xs px-2.5 py-1.5"
             disabled={pending}
@@ -87,7 +93,9 @@ export function MailDetailModal({
         </div>
       </div>
 
-      {showReply ? (
+      {beantwoord ? (
+        <VerstuurdPanel message={message} />
+      ) : showReply ? (
         <DraftPanel message={message} onSent={onClose} />
       ) : (
         <div className="mt-4 border-t border-line pt-4">
@@ -97,5 +105,32 @@ export function MailDetailModal({
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * Wat er bij een beantwoorde mail te zien is. Staat er een concept naast de
+ * verstuurde tekst, dan tonen we het verschil; anders alleen wat er uitging.
+ * Dat laatste geldt voor mails van vóór de leerlus en voor antwoorden die
+ * helemaal zelf zijn getypt.
+ */
+function VerstuurdPanel({ message }: { message: MailRowView }) {
+  if (message.sentBody && message.aiDraft) {
+    return <DiffView concept={message.aiDraft} verstuurd={message.sentBody} />;
+  }
+
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <h3 className="text-sm font-semibold mb-2">Jouw antwoord</h3>
+      <div className="rounded-[10px] border border-line bg-surface-2 p-3 max-h-[40vh] overflow-y-auto">
+        <p className="whitespace-pre-wrap break-words text-sm">
+          {message.sentBody || "(niet bewaard)"}
+        </p>
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        Zonder bewaard concept valt er geen verschil te tonen — dit antwoord is zelf getypt of
+        dateert van vóór de leerlus.
+      </p>
+    </div>
   );
 }

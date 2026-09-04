@@ -555,3 +555,247 @@ Met vriendelijke groet,
 Pakketservice`,
   },
 ];
+
+/* --- Al beantwoorde mail: de leerlus --------------------------------------- */
+
+/**
+ * Mails die al verstuurd zijn. Hier staat het concept náást de tekst die
+ * daadwerkelijk uitging, want dat verschil is het leersignaal van de assistent:
+ * elke correctie gaat mee in de prompt van het volgende concept.
+ *
+ * Ook een concept dat ongewijzigd de deur uitging staat erbij — dat is geen
+ * correctie maar wel het cijfer waar het om gaat.
+ */
+export type DemoVerstuurdeMail = DemoMail & {
+  /** Hoeveel uur geleden het antwoord verstuurd is. */
+  urenGeledenVerstuurd: number;
+  /** Wat er werkelijk uitging. Gelijk aan `aiDraft` = ongewijzigd verstuurd. */
+  sentBody: string;
+};
+
+export const DEMO_VERSTUURD: DemoVerstuurdeMail[] = [
+  /* Concept was te omslachtig: beleefdheidsopening eruit, vaag antwoord vervangen
+     door een concrete dag, formele afsluiting teruggebracht naar "Groet". */
+  {
+    uid: 5101,
+    fromName: "Ronald Hendriks",
+    fromAddress: "ronald@warmte-en-co-demo.nl",
+    subject: "Kunnen we de storingsdienst op de site zetten?",
+    urenGeleden: 76,
+    urenGeledenVerstuurd: 74,
+    categorie: "beantwoorden",
+    body: `Hoi Sijmen,
+
+We hebben sinds kort een storingsdienst buiten kantooruren. Nu belt iedereen nog het gewone nummer en dat loopt niet lekker.
+
+Kunnen we dat ergens duidelijk op de site zetten, met het aparte nummer erbij? Liefst zo dat je het meteen ziet.
+
+Groet,
+Ronald`,
+    aiDraft: `Hoi Ronald,
+
+Bedankt voor je bericht. Dat is zeker mogelijk.
+
+Ik zou voorstellen om een opvallende balk bovenaan elke pagina te plaatsen met het storingsnummer erin, zodat bezoekers het direct zien zonder te hoeven zoeken. Daarnaast kan ik het nummer ook opnemen op de contactpagina.
+
+Ik zal er zo snel mogelijk naar kijken en kom bij je terug zodra ik er meer over kan zeggen.
+
+Met vriendelijke groet,
+Sijmen`,
+    sentBody: `Hoi Ronald,
+
+Dat kan gewoon. Ik zet een balk bovenaan elke pagina met het storingsnummer erin, en het komt ook op de contactpagina te staan.
+
+Ik pak het woensdag op, dan staat het donderdag live. Stuur je me het nummer even door?
+
+Groet,
+Sijmen`,
+  },
+
+  /* Concept deed een prijstoezegging die niet klopte. Sijmen haalt het bedrag
+     eruit en houdt het bij een concrete vervolgstap. */
+  {
+    uid: 5102,
+    fromName: "Sofie Willems",
+    fromAddress: "sofie@dehaven-demo.nl",
+    subject: "Re: Demo van jullie nieuwe site",
+    urenGeleden: 122,
+    urenGeledenVerstuurd: 119,
+    categorie: "beantwoorden",
+    body: `Hoi Sijmen,
+
+De demo ziet er echt goed uit, daar waren we het snel over eens. Vooral de menukaart werkt fijn.
+
+Wat zou het kosten als we ook online reserveren erbij willen? En hoe lang duurt het voor zoiets staat?
+
+Groet,
+Sofie`,
+    aiDraft: `Hoi Sofie,
+
+Wat leuk om te horen, daar word ik blij van.
+
+Online reserveren erbij kost ongeveer 250 euro extra, afhankelijk van welk systeem jullie willen gebruiken. De doorlooptijd is dan ongeveer twee weken vanaf het moment dat we beginnen.
+
+Zullen we een keer bellen om het door te nemen?
+
+Groet,
+Sijmen`,
+    sentBody: `Hoi Sofie,
+
+Wat leuk om te horen, daar word ik blij van.
+
+Voor online reserveren hangt de prijs af van welk systeem jullie willen gebruiken — dat scheelt nogal. Zal ik twee opties op een rij zetten met een prijs erbij, dan kunnen jullie kiezen?
+
+Doorlooptijd is een week of twee vanaf het moment dat we beginnen.
+
+Laat maar weten of dat werkt.
+
+Groet,
+Sijmen`,
+  },
+
+  /* Klein maar typerend: de assistent schreef "u", Sijmen tutoyeert altijd. */
+  {
+    uid: 5103,
+    fromName: "Karin Slothouwer",
+    fromAddress: "karin@ademruimte-demo.nl",
+    subject: "Lesrooster zelf aanpassen",
+    urenGeleden: 51,
+    urenGeledenVerstuurd: 50,
+    categorie: "beantwoorden",
+    body: `Beste Sijmen,
+
+Ik zou het lesrooster graag zelf bijwerken, want nu moet ik u er steeds voor mailen. Is dat ingewikkeld om te leren?
+
+Met vriendelijke groet,
+Karin`,
+    aiDraft: `Beste Karin,
+
+Dat is zeker mogelijk en het is bovendien niet ingewikkeld. U krijgt een eenvoudige beheeromgeving waarin u lessen kunt toevoegen, wijzigen en verwijderen.
+
+Ik kan u daar een korte uitleg bij geven, zodat u er direct mee uit de voeten kunt.
+
+Met vriendelijke groet,
+Sijmen`,
+    sentBody: `Hoi Karin,
+
+Dat kan gewoon, en het valt echt mee. Je krijgt een simpel schermpje waarin je lessen kunt toevoegen, aanpassen en weghalen.
+
+Ik loop het een keer met je door in een kwartiertje, dan kun je meteen zelf aan de slag. Volgende week dinsdag?
+
+Groet,
+Sijmen`,
+  },
+
+  /* Ongewijzigd verstuurd: het concept was meteen goed. */
+  {
+    uid: 5104,
+    fromName: "Thomas Bekker",
+    fromAddress: "thomas@zoutkeet-demo.nl",
+    subject: "Factuur van de hosting",
+    urenGeleden: 44,
+    urenGeledenVerstuurd: 43,
+    categorie: "beantwoorden",
+    body: `Hoi Sijmen,
+
+Ik zie een afschrijving van de hosting maar kan de factuur nergens vinden. Kun je hem nog een keer sturen?
+
+Groet,
+Thomas`,
+    aiDraft: `Hoi Thomas,
+
+Ik stuur hem vanmiddag opnieuw naar dit adres. Hij is van vorige maand, dus check ook even je spam als hij niet aankomt.
+
+Groet,
+Sijmen`,
+    sentBody: `Hoi Thomas,
+
+Ik stuur hem vanmiddag opnieuw naar dit adres. Hij is van vorige maand, dus check ook even je spam als hij niet aankomt.
+
+Groet,
+Sijmen`,
+  },
+  {
+    uid: 5105,
+    fromName: "Marijke de Vries",
+    fromAddress: "marijke@korenbloem-demo.nl",
+    subject: "Openingstijden feestdagen",
+    urenGeleden: 98,
+    urenGeledenVerstuurd: 97,
+    categorie: "beantwoorden",
+    body: `Hoi Sijmen,
+
+Zou je de openingstijden voor de feestdagen op de site kunnen zetten? We zijn tweede kerstdag dicht en oudjaarsdag tot 15:00 open.
+
+Groetjes,
+Marijke`,
+    aiDraft: `Hoi Marijke,
+
+Helder, ik zet het er vandaag bij. Tweede kerstdag dicht, oudjaarsdag tot 15:00.
+
+Ik zet er meteen een melding bovenaan de pagina bij, dan zien mensen het ook als ze niet doorklikken.
+
+Groet,
+Sijmen`,
+    sentBody: `Hoi Marijke,
+
+Helder, ik zet het er vandaag bij. Tweede kerstdag dicht, oudjaarsdag tot 15:00.
+
+Ik zet er meteen een melding bovenaan de pagina bij, dan zien mensen het ook als ze niet doorklikken.
+
+Groet,
+Sijmen`,
+  },
+  {
+    uid: 5106,
+    fromName: "Anouk Verlinden",
+    fromAddress: "anouk@maasoever-demo.nl",
+    subject: "Nieuwe collega op de teampagina",
+    urenGeleden: 140,
+    urenGeledenVerstuurd: 138,
+    categorie: "beantwoorden",
+    body: `Hoi Sijmen,
+
+Per volgende maand komt er een nieuwe fysiotherapeut bij ons werken. Kun je haar op de teampagina zetten? Foto en tekst stuur ik nog.
+
+Groet,
+Anouk`,
+    aiDraft: `Hoi Anouk,
+
+Prima, stuur maar door als je het hebt. Zodra de foto en tekst binnen zijn staat ze er dezelfde week op.
+
+Groet,
+Sijmen`,
+    sentBody: `Hoi Anouk,
+
+Prima, stuur maar door als je het hebt. Zodra de foto en tekst binnen zijn staat ze er dezelfde week op.
+
+Groet,
+Sijmen`,
+  },
+
+  /* Zonder concept: helemaal zelf getypt. Hoort niet in de leerlus thuis en telt
+     dus ook niet mee in de cijfers. */
+  {
+    uid: 5107,
+    fromName: "Peter Grondman",
+    fromAddress: "peter@grondman-bouw-demo.nl",
+    subject: "Even bellen volgende week?",
+    urenGeleden: 200,
+    urenGeledenVerstuurd: 198,
+    categorie: "beantwoorden",
+    body: `Sijmen,
+
+Zullen we volgende week even bellen over dat idee dat we bespraken? Ik heb er nog wat over nagedacht.
+
+Peter`,
+    sentBody: `Hoi Peter,
+
+Ja, leuk. Dinsdagmiddag na tweeën kan ik goed, of donderdagochtend.
+
+Bel me gerust op mijn mobiel.
+
+Groet,
+Sijmen`,
+  },
+];

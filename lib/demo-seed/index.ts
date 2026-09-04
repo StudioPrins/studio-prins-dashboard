@@ -18,7 +18,7 @@ import { STANDAARD_WEBSITE_VELDEN } from "../intake-fields";
 import { uurNaarFactuurregel } from "../uren";
 import { KLANTEN, LEADS, DEMO_BEDRIJF } from "./data";
 import { UREN } from "./uren";
-import { DEMO_ACCOUNT, DEMO_MAILS } from "./mail";
+import { DEMO_ACCOUNT, DEMO_MAILS, DEMO_VERSTUURD, type DemoMail } from "./mail";
 
 /* --- Datums ---------------------------------------------------------------- */
 
@@ -350,28 +350,42 @@ export async function seedDemo(): Promise<{ klanten: number; uren: number; mails
     }))
   );
 
-  await db.insert(mailMessages).values(
-    DEMO_MAILS.map((m) => ({
-      accountId: account.id,
-      mailbox: "INBOX",
-      uid: m.uid,
-      messageId: `<demo-${m.uid}@studioprins-demo.nl>`,
-      fromAddress: m.fromAddress,
-      fromName: m.fromName,
-      toAddress: DEMO_ACCOUNT.email,
-      subject: m.subject,
-      date: urenGeleden(m.urenGeleden),
-      snippet: m.body.replace(/\s+/g, " ").trim().slice(0, 200),
-      bodyText: m.body,
-      bodyHtml: null,
-      category: m.categorie,
-      aiDraft: m.aiDraft ?? null,
-      aiDraftGeneratedAt: m.aiDraft ? urenGeleden(Math.max(0, m.urenGeleden - 1)) : null,
-      status: "nieuw",
-    }))
-  );
+  /** Gemeenschappelijke velden van een demo-mail; status en antwoord verschillen. */
+  const mailRij = (m: DemoMail) => ({
+    accountId: account.id,
+    mailbox: "INBOX",
+    uid: m.uid,
+    messageId: `<demo-${m.uid}@studioprins-demo.nl>`,
+    fromAddress: m.fromAddress,
+    fromName: m.fromName,
+    toAddress: DEMO_ACCOUNT.email,
+    subject: m.subject,
+    date: urenGeleden(m.urenGeleden),
+    snippet: m.body.replace(/\s+/g, " ").trim().slice(0, 200),
+    bodyText: m.body,
+    bodyHtml: null,
+    category: m.categorie,
+    aiDraft: m.aiDraft ?? null,
+    aiDraftGeneratedAt: m.aiDraft ? urenGeleden(Math.max(0, m.urenGeleden - 1)) : null,
+  });
 
-  return { klanten: KLANTEN.length, uren: urenRijen.length, mails: DEMO_MAILS.length };
+  await db.insert(mailMessages).values([
+    ...DEMO_MAILS.map((m) => ({ ...mailRij(m), status: "nieuw" })),
+    // Al beantwoord: concept én verstuurde tekst, zodat de leerlus in de demo
+    // te zien is. Versturen zelf is in de demo geblokkeerd.
+    ...DEMO_VERSTUURD.map((m) => ({
+      ...mailRij(m),
+      sentBody: m.sentBody,
+      sentAt: urenGeleden(m.urenGeledenVerstuurd),
+      status: "beantwoord",
+    })),
+  ]);
+
+  return {
+    klanten: KLANTEN.length,
+    uren: urenRijen.length,
+    mails: DEMO_MAILS.length + DEMO_VERSTUURD.length,
+  };
 }
 
 /** Bedrijfsnaam → stabiele sleutel voor het onboarding-token. */
