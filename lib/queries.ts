@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, asc, count, isNull, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, asc, count, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients, tasks, invoices, invoiceLines, leads, companySettings, checklistTemplate, intakeFields, mailAccounts, mailMessages, uren } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth";
@@ -416,7 +416,10 @@ export async function getVerstuurdeMails(filter?: {
     .from(mailMessages)
     .innerJoin(mailAccounts, eq(mailMessages.accountId, mailAccounts.id))
     .where(and(...conds))
-    .orderBy(desc(mailMessages.sentAt), desc(mailMessages.id))
+    // `desc()` is in Postgres NULLS FIRST. Antwoorden van vóór de leerlus hebben geen
+    // `sent_at` (zie scripts/mail-feedback-migrate.ts) en zouden dus zonder datum
+    // bovenaan komen; onderaan is de enige plek waar ze horen.
+    .orderBy(sql`${mailMessages.sentAt} desc nulls last`, desc(mailMessages.id))
     .limit(300);
 
   return toMailRowViews(rows);
@@ -443,7 +446,6 @@ export async function getVerstuurdCount(filter?: { accountId?: number }): Promis
  * Verstuurd-weergave zelf; het tabtelletje heeft genoeg aan `getVerstuurdCount`.
  */
 export type LeerlusStats = {
-  verstuurd: number;
   metConcept: number;
   ongewijzigd: number;
   /** Gemiddelde aanpassing over de mails mét concept, 0–1. */
@@ -474,7 +476,6 @@ export async function getLeerlusStats(filter?: {
   }
 
   return {
-    verstuurd: rows.length,
     metConcept,
     ongewijzigd,
     gemiddeldeAanpassing: metConcept === 0 ? 0 : somAanpassing / metConcept,

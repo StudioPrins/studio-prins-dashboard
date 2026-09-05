@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { mailAccounts, mailMessages, mailStyleExamples } from "@/lib/db/schema";
@@ -56,7 +56,10 @@ async function recenteCorrecties(accountId: number): Promise<MailCorrection[]> {
         isNotNull(mailMessages.sentBody)
       )
     )
-    .orderBy(desc(mailMessages.sentAt))
+    // NULLS LAST, want `desc()` zet in Postgres juist de lege `sent_at` vooraan.
+    // Antwoorden van vóór de leerlus hebben die niet; hun `ai_draft` is leeg, dus
+    // ze vallen hier al af — maar die vangnet-koppeling wil ik niet nodig hebben.
+    .orderBy(sql`${mailMessages.sentAt} desc nulls last`)
     .limit(CORRECTIE_ZOEKDIEPTE);
 
   const paren: MailCorrection[] = [];

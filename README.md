@@ -117,11 +117,12 @@ spreadsheet, facturen in Word, en een inbox die ik 's avonds nog moest uitzoeken
 
 Ik heb het gebouwd met Claude Code, en daar ben ik niet geheimzinnig over. Wat ik
 in die zeven weken vooral geleerd heb, is dat de kwaliteit niet in het
-genereren zit maar in het beoordelen. De drie beslissingen hierboven zijn geen
+genereren zit maar in het beoordelen. De vier beslissingen hierboven zijn geen
 dingen die er vanzelf uitkwamen: de vóórfilter kwam er nadat ik naar mijn
 API-rekening keek, de `invoice_id IS NULL`-voorwaarde nadat ik me afvroeg wat er
-gebeurt als ik twee tabbladen open heb, en de UIDVALIDITY-afhandeling nadat de
-sync een keer alles dubbel binnenhaalde.
+gebeurt als ik twee tabbladen open heb, de UIDVALIDITY-afhandeling nadat de sync
+een keer alles dubbel binnenhaalde, en de tweede kolom naast `ai_draft` nadat ik
+doorhad dat ik dat beoordelen bij elke verzending weggooide.
 
 Wat ik nog niet heb, noem ik er meteen bij: er is geen Python of FastAPI in dit
 project. Ik schrijf Python voor mijn studie — statistiek, data — maar nog niet
