@@ -166,6 +166,13 @@ export interface MailCorrection {
   verstuurd: string;
 }
 
+/**
+ * Hoeveel stijlvoorbeelden er hoogstens meegaan. De keuze wélke acht dat zijn
+ * ligt bij de aanroeper (zie pickStyleExamples in lib/mail/style-examples.ts);
+ * hier staat alleen de bovengrens, zodat de prompt nooit onbedoeld uitdijt.
+ */
+export const MAX_STYLE_EXAMPLES = 8;
+
 /** Per kant afkappen: het patroon van een correctie zit in de eerste alinea's. */
 const MAX_CORRECTION_CHARS = 1500;
 
@@ -194,7 +201,7 @@ function styleBlock(
   }
   if (examples.length > 0) {
     const shown = examples
-      .slice(0, 8)
+      .slice(0, MAX_STYLE_EXAMPLES)
       .map((e, i) => `Voorbeeld ${i + 1}:\n${e.bodyText}`)
       .join("\n\n");
     parts.push(`\nEnkele eerder verzonden mails ter referentie:\n${shown}`);

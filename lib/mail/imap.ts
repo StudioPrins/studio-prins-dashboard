@@ -2,6 +2,7 @@ import "server-only";
 import { ImapFlow, type ListResponse, type SearchObject } from "imapflow";
 import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import { decryptSecret } from "./crypto";
+import { stripQuoted } from "./quote";
 import type { MailAccount } from "@/lib/db/schema";
 
 /** Verbindingsgegevens voor IMAP (wachtwoord in platte tekst). */
@@ -319,20 +320,6 @@ export interface SentExample {
   subject: string | null;
   bodyText: string;
   date: Date | null;
-}
-
-// Strip een geciteerd antwoordgedeelte ("Op ... schreef ...", ">"-regels).
-function stripQuoted(text: string): string {
-  const lines = text.split(/\r?\n/);
-  const out: string[] = [];
-  for (const line of lines) {
-    if (/^\s*Op .+ schreef .+:?$/i.test(line)) break;
-    if (/^\s*On .+ wrote:?$/i.test(line)) break;
-    if (/^\s*-{2,}\s*Oorspronkelijk bericht\s*-{2,}/i.test(line)) break;
-    if (/^\s*>/.test(line)) continue;
-    out.push(line);
-  }
-  return out.join("\n").trim();
 }
 
 export async function fetchSentExamples(

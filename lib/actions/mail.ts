@@ -8,7 +8,8 @@ import { requireSession } from "@/lib/auth";
 import { runMailSync, type MailSyncResult } from "@/lib/mail/sync";
 import { markSeen, markSeenBulk, moveToTrash, appendToSent } from "@/lib/mail/imap";
 import { sendReply } from "@/lib/mail/smtp";
-import { generateDraft, type MailCorrection } from "@/lib/ai/mail-ai";
+import { generateDraft, MAX_STYLE_EXAMPLES, type MailCorrection } from "@/lib/ai/mail-ai";
+import { pickStyleExamples } from "@/lib/mail/style-examples";
 import { isMeaningfulEdit } from "@/lib/mail/diff";
 import { DEMO, demoMelding } from "@/lib/demo";
 
@@ -87,11 +88,16 @@ export async function generateDraftAction(messageId: number): Promise<DraftState
   const [account] = await db.select().from(mailAccounts).where(eq(mailAccounts.id, msg.accountId));
   if (!account) return { error: "Account niet gevonden." };
 
-  const examples = await db
+  // Op id oplopend = nieuwste eerst: fetchSentExamples sorteert op datum afóór
+  // het invoegen. pickStyleExamples maakt er daarna een doorsnede van in plaats
+  // van de kop van de lijst, want een drukke week met één klant vulde anders
+  // alle acht plekken met dezelfde thread.
+  const alleVoorbeelden = await db
     .select({ subject: mailStyleExamples.subject, bodyText: mailStyleExamples.bodyText })
     .from(mailStyleExamples)
     .where(eq(mailStyleExamples.accountId, account.id))
     .orderBy(asc(mailStyleExamples.id));
+  const examples = pickStyleExamples(alleVoorbeelden, MAX_STYLE_EXAMPLES);
 
   const corrections = await recenteCorrecties(account.id);
 
