@@ -23,6 +23,10 @@ inlog nodig, alle data is verzonnen en wordt twee keer per dag teruggezet.
 
 ![Een binnengekomen klantmail met daaronder het gegenereerde conceptantwoord.](docs/screenshots/mailassistent.png)
 
+*Wat ik aan zo’n concept verander blijft bewaard. De Verstuurd-weergave zet concept en verzonden tekst naast elkaar, en die correcties gaan letterlijk mee in de volgende prompt.*
+
+![De Verstuurd-weergave: bovenaan hoe vaak een concept ongewijzigd de deur uitging, daaronder een woord-diff tussen het concept en wat er werkelijk verstuurd is.](docs/screenshots/leerlus.png)
+
 ---
 
 ## Wat het doet
@@ -46,7 +50,7 @@ flowchart LR
   Q --> DB
   SA --> IMAP["IMAP / SMTP<br/>lib/mail/"]
   SA --> AI["Claude<br/>lib/ai/"]
-  CRON["Vercel Cron<br/>07:00 en 16:00"] --> SYNC["Mailsync"]
+  CRON["Vercel Cron<br/>05:00 en 14:00 UTC"] --> SYNC["Mailsync"]
   SYNC --> IMAP
   SYNC --> AI
   SYNC --> DB
@@ -57,8 +61,9 @@ flowchart LR
 Pagina's zijn dunne server components die data ophalen en doorgeven; alle
 mutaties lopen via server actions. Beveiliging zit niet alleen in de proxy maar
 ook in elke query en elke action apart — `requireSession()` staat overal
-bovenaan, met twee gedocumenteerde uitzonderingen voor het publieke
-intakeformulier.
+bovenaan, met drie gedocumenteerde uitzonderingen, alle drie voor het publieke
+intakeformulier: het ophalen van de klant bij een token, de vragenlijst, en het
+opslaan van de antwoorden.
 
 ## Vier beslissingen die ik zou uitleggen in een code review
 
@@ -177,12 +182,15 @@ anders is:
 - **Geen inlog.** `getSession()` geeft een vaste sessie terug, zodat
   `requireSession()` overal ongewijzigd blijft werken.
 - **Schrijven mag.** Klanten aanmaken, uren boeken, facturen maken: het werkt
-  allemaal echt. Twee keer per dag zet een cron de data terug.
+  allemaal echt. Twee keer per dag zet een cron alles terug — dezelfde cron als de
+  mailsync. `vercel.json` is namelijk gedeeld tussen beide Vercel-projecten en het
+  Hobby-plan staat maar twee cron jobs per project toe, dus in de demo doet die
+  route de reset in plaats van het ophalen van mail.
 - **Niets kan naar buiten.** De demo-deploy heeft geen `ANTHROPIC_API_KEY`,
   `MAIL_SECRET`, `RESEND_API_KEY` en geen Google-credentials. Zonder die
   sleutels kán er geen mail verstuurd worden en geen IMAP-verbinding opgezet —
-  ook niet als ik ergens een controle vergeet. De zes acties die de buitenwereld
-  raken tonen een uitleg in plaats van een foutmelding.
+  ook niet als ik ergens een controle vergeet. Elke actie die de buitenwereld
+  raakt toont een uitleg in plaats van een foutmelding.
 - **Verzonnen data.** Acht klanten, vijf leads, 62 uurregistraties, acht
   documenten en een mailbox van 25 berichten, plus zeven al beantwoorde mails
   waarop de leerlus te zien is. De conceptantwoorden zijn vooraf gegenereerd met
@@ -200,10 +208,11 @@ als omgevingsvariabelen. Daarna `npm run db:push` en `npm run db:demo-seed`.
    tabel hieronder).
 4. Na de eerste deploy: `npm run db:push` tegen de productie-`DATABASE_URL`.
 
-> **Bij een bestaande database:** draai `npm run db:mail-feedback-migrate` vóór
-> de deploy die de leerlus meeneemt. De mailweergave leest `sent_body`, dus
-> zonder die kolommen faalt `/mail`. Het script is idempotent en verplaatst
-> meteen de antwoorden van vóór de leerlus naar de juiste kolom.
+> **Bij een database van vóór de leerlus:** draai `npm run db:mail-feedback-migrate`
+> vóór je deployt. `/mail` selecteert `sent_body` in elke weergave, dus zonder die
+> kolommen valt de hele pagina om en niet alleen het nieuwe tabblad. Het script is
+> idempotent en verplaatst meteen de eerdere antwoorden naar de juiste kolom. Een
+> verse database heeft het niet nodig; `db:push` zet de kolommen er meteen bij.
 
 > `.env.local` geldt **alleen lokaal** en staat in `.gitignore`; online wordt dat
 > bestand nooit gelezen. Elke variabele moet dus apart in Vercel staan, en een

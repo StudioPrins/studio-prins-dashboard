@@ -5,7 +5,7 @@ const REPO = "https://github.com/StudioPrins/studio-prins-dashboard";
 /**
  * Strook boven het dashboard in de demo-omgeving. Maakt in één oogopslag
  * duidelijk dat alles wat je ziet verzonnen is — en dat rondklikken mag,
- * want de data wordt elke nacht teruggezet.
+ * want de cron in app/api/cron/mail-sync de data twee keer per dag terugzet.
  */
 export function DemoBanner() {
   if (!DEMO) return null;
