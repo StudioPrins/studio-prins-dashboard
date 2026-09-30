@@ -27,7 +27,7 @@ export type Bedrijf = {
   kor: boolean;
   korVermelding: string;
   standaardBtw: number;
-  betaaltermijnMaanden: number;
+  betaaltermijnDagen: number;
 };
 
 const pick = (v: string | null | undefined, d: string) => (v && v.trim() ? v : d);
@@ -51,7 +51,7 @@ export async function getCompanySettings(): Promise<Bedrijf> {
     kor: BEDRIJF.kor,
     korVermelding: BEDRIJF.korVermelding,
     standaardBtw: BEDRIJF.standaardBtw,
-    betaaltermijnMaanden: BEDRIJF.betaaltermijnMaanden,
+    betaaltermijnDagen: BEDRIJF.betaaltermijnDagen,
   };
 }
 

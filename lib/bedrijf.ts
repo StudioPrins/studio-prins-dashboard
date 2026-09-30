@@ -28,6 +28,6 @@ export const BEDRIJF = {
   // Standaard btw-percentage op nieuwe facturen (0 vanwege de KOR).
   standaardBtw: 0,
 
-  // Standaard betaaltermijn: exact één maand na de factuurdatum.
-  betaaltermijnMaanden: 1,
+  // Standaard betaaltermijn: 14 dagen na de factuurdatum.
+  betaaltermijnDagen: 14,
 } as const;

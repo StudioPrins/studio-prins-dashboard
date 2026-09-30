@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createInvoice, type FormState } from "@/lib/actions/invoices";
-import { euroToCents, formatCents, centsToInput, toISODate, addMonths } from "@/lib/format";
+import { euroToCents, formatCents, centsToInput, toISODate, addDays } from "@/lib/format";
 import { lineTotalCents } from "@/lib/invoice-calc";
 import { formatUren, uurNaarFactuurregel } from "@/lib/uren";
 import { BEDRIJF } from "@/lib/bedrijf";
@@ -145,7 +145,7 @@ export function InvoiceBuilder({
   }, [lines]);
 
   const vervaldatum =
-    type === "factuur" ? addMonths(BEDRIJF.betaaltermijnMaanden, new Date(datum)) : "";
+    type === "factuur" ? addDays(BEDRIJF.betaaltermijnDagen, new Date(datum)) : "";
 
   return (
     <form action={formAction} className="grid gap-6 lg:grid-cols-[1.4fr_1fr] items-start">
